@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nos Menus Événementiels & Festifs | Vite & Gourmand</title>
+    <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+
+    <!-- Barre de Navigation -->
+    <header class="header-nav">
+        <div class="navbar-container">
+            <a href="/" class="brand-wrapper">
+                <span class="brand-name">Vite & Gourmand</span>
+                <span class="brand-tagline">Traiteur événementiel • Bordeaux (25 ans)</span>
+            </a>
+            <nav>
+                <ul class="nav-menu">
+                    <li><a href="/" class="nav-link">Accueil</a></li>
+                    <li><a href="/menus.html" class="nav-link active">Nos Menus</a></li>
+                    <li><a href="/contact.html" class="nav-link">Contact</a></li>
+                </ul>
+            </nav>
+            <a href="/login.html" class="btn-connexion">Connexion</a>
+        </div>
+    </header>
+
+    <!-- En-tête de section -->
+    <main class="container-1296" style="padding-top: 40px; padding-bottom: 60px;">
+        <div class="section-center-header">
+            <h2>Nos Menus Événementiels & Festifs</h2>
+            <p>Découvrez nos compositions faites maison par Julie & José. Filtrez selon vos envies et votre budget.</p>
+        </div>
+
+        <!-- Disposition Grille Catalogue (3 colonnes filtres + 9 colonnes menus) -->
+        <div class="catalog-layout">
+            
+            <!-- Panneau Latéral de Filtres -->
+            <aside class="filters-sidebar">
+                <div class="filters-sidebar-header">
+                    <h3>Filtres</h3>
+                    <button type="button" id="btn-reset-filters" class="btn-reset-filters">Réinitialiser</button>
+                </div>
+
+                <!-- Filtre Curseur Prix -->
+                <div class="filter-group">
+                    <div class="filter-title" id="label-prix-max">Prix maximum : 65 € / pers</div>
+                    <input type="range" id="filter-range-prix" min="25" max="70" step="1" value="65" style="width: 100%; accent-color: var(--color-primary); cursor: pointer;">
+                </div>
+
+                <!-- Filtre Fourchette de budget -->
+                <div class="filter-group">
+                    <div class="filter-title">Fourchette de budget</div>
+                    <label class="filter-checkbox-item">
+                        <input type="checkbox" class="filter-budget" value="under-30"> Moins de 30 €
+                    </label>
+                    <label class="filter-checkbox-item">
+                        <input type="checkbox" class="filter-budget" value="30-50"> Entre 30 € et 50 €
+                    </label>
+                    <label class="filter-checkbox-item">
+                        <input type="checkbox" class="filter-budget" value="over-50"> Plus de 50 €
+                    </label>
+                </div>
+
+                <!-- Filtre Thème -->
+                <div class="filter-group">
+                    <div class="filter-title">Thème de l'événement</div>
+                    <select id="filter-theme" style="width: 100%; padding: 8px 10px; border-radius: var(--radius-sm); border: 1px solid var(--color-border); font-family: inherit; font-size: 13px;">
+                        <option value="">Tous les thèmes</option>
+                        <option value="Noël">Noël</option>
+                        <option value="Pâques">Pâques</option>
+                        <option value="Événement">Événement</option>
+                        <option value="Classique">Classique</option>
+                    </select>
+                </div>
+
+                <!-- Filtre Régime alimentaire -->
+                <div class="filter-group">
+                    <div class="filter-title">Régime alimentaire</div>
+                    <div class="diet-pills-group">
+                        <button type="button" class="diet-pill active" data-regime="">Tous</button>
+                        <button type="button" class="diet-pill" data-regime="Végétarien">Végétarien</button>
+                        <button type="button" class="diet-pill" data-regime="Vegan">Vegan</button>
+                    </div>
+                </div>
+
+                <!-- Filtre Convives minimum -->
+                <div class="filter-group">
+                    <div class="filter-title">Convives minimum</div>
+                    <div class="counter-selector">
+                        <button type="button" class="counter-btn" id="btn-convives-minus">−</button>
+                        <span class="counter-value" id="val-convives">4 pers.</span>
+                        <button type="button" class="counter-btn" id="btn-convives-plus">+</button>
+                    </div>
+                </div>
+
+                <div style="font-size: 11px; color: var(--badge-success-text); margin-top: 16px; font-weight: 600;">
+                    ✨ Filtrage dynamique instantané
+                </div>
+            </aside>
+
+            <!-- Grille des Menus (2x2) -->
+            <section>
+                <div id="catalog-grid" class="menus-grid-2x2">
+                    <p style="grid-column: 1 / -1; text-align: center; color: var(--color-text-muted);">
+                        Chargement des formules gastronomiques...
+                    </p>
+                </div>
+            </section>
+
+        </div>
+    </main>
+
+    <!-- Footer 3 colonnes -->
+    <footer class="site-footer">
+        <div class="container-1296">
+            <div class="footer-columns">
+                <div class="footer-col">
+                    <h4>Vite & Gourmand</h4>
+                    <p>Traiteur événementiel depuis 25 ans à Bordeaux.</p>
+                    <p>12 Cours de l'Intendance, 33000 Bordeaux</p>
+                    <p>05 56 XX XX XX / contact@vitegourmand.fr</p>
+                </div>
+                <div class="footer-col center">
+                    <h4>Nos Horaires d'Ouverture</h4>
+                    <p><strong>Lundi au Vendredi :</strong> 08h30 – 19h00</p>
+                    <p><strong>Samedi :</strong> 09h00 – 20h00 (Prestations en continu)</p>
+                    <p><strong>Dimanche :</strong> 09h00 – 15h00 (Livraisons programmées)</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Liens Utiles</h4>
+                    <ul class="footer-links">
+    <li><a href="/menus.html">Nos Menus Événementiels</a></li>
+    <li><a href="/contact.html">Demande de Devis & Contact</a></li>
+    <li><a href="/mentions-legales.html">Mentions Légales</a></li>
+    <li><a href="/cgv.html">Conditions Générales de Vente (CGV)</a></li>
+</ul>
+                </div>
+            </div>
+            <div class="footer-bottom-bar">
+                &copy; 2026 Vite & Gourmand — Tous droits réservés. Réalisé par FastDev.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script de filtrage dynamique et rendu catalogue -->
+    <script src="/js/menus.js"></script>
+</body>
+</html>

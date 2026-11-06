@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Configurer votre commande | Vite & Gourmand</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .counter-btn-lg {
+            width: 36px;
+            height: 36px;
+            background: #F3F4F6;
+            border: 1px solid var(--color-border);
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            color: var(--color-text-title);
+        }
+        .counter-btn-lg:hover {
+            background: #E5E7EB;
+        }
+        .config-field-group {
+            margin-bottom: 14px;
+            text-align: left;
+        }
+        .config-field-group label {
+            display: block;
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--color-text-title);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .config-input {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-family: inherit;
+            font-size: 13px;
+            background: #FAFAFA;
+        }
+        .config-input:focus {
+            outline: none;
+            border-color: var(--color-primary);
+            background: #FFFFFF;
+        }
+        .config-row-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Barre de Navigation -->
+    <header class="header-nav">
+        <div class="navbar-container">
+            <a href="/" class="brand-wrapper">
+                <span class="brand-name">Vite & Gourmand</span>
+                <span class="brand-tagline">Traiteur événementiel • Bordeaux (25 ans)</span>
+            </a>
+            <nav>
+                <ul class="nav-menu">
+                    <li><a href="/" class="nav-link">Accueil</a></li>
+                    <li><a href="/menus.html" class="nav-link active">Nos Menus</a></li>
+                    <li><a href="/contact.html" class="nav-link">Contact</a></li>
+                </ul>
+            </nav>
+            <a href="/login.html" class="btn-connexion">Connexion</a>
+        </div>
+    </header>
+
+    <main class="container-1296">
+        
+        <!-- Fil d'Ariane -->
+        <nav class="breadcrumb" aria-label="Fil d'Ariane">
+            <a href="/">Accueil</a> / 
+            <a href="/menus.html">Nos Menus</a> / 
+            <span class="active" id="breadcrumb-current">Chargement du menu...</span>
+        </nav>
+
+        <!-- Grille 7 colonnes (détails) / 5 colonnes (configurateur devis) -->
+        <div class="order-layout">
+            
+            <!-- Colonne Gauche : Présentation du Menu & Conformité INCO -->
+            <section class="order-menu-details">
+                
+                <!-- Visuel Header avec Badges -->
+                <div class="order-menu-header-img" id="menu-header-box">
+                    <span class="pill-regime" id="badge-regime">Classique</span>
+                    <span class="pill-stock" id="badge-stock">Il reste 5 commandes disponibles</span>
+                    <div style="position: absolute; top: 44px; left: 12px; background: #8C5325; color: #FFF; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px;" id="badge-theme-top">
+                        THÈME : NOËL
+                    </div>
+                    <span id="photo-label">[Photo HD : Menu Festif du Réveillon]</span>
+                </div>
+
+                <!-- Titre & Description -->
+                <div>
+                    <h1 id="menu-titre" style="font-size: 28px; margin-bottom: 4px;">Menu Festif du Réveillon</h1>
+                    <p class="surtitre-or" style="color: var(--color-secondary); font-size: 13px; margin-bottom: 12px;">
+                        Élaboré artisanalement par Julie & José • Produits frais de Gironde
+                    </p>
+                    <p id="menu-description" style="font-size: 14px; line-height: 1.6; color: var(--color-text-body);">
+                        Une partition gastronomique pensée pour célébrer la fin d'année. Chaque met est préparé le matin même dans notre atelier bordelais pour vous garantir une fraîcheur et des saveurs incomparables.
+                    </p>
+                </div>
+
+                <!-- Composition & Allergènes INCO -->
+                <div class="composition-box">
+                    <h3 style="font-size: 16px; margin-bottom: 16px; border-bottom: 1px solid var(--color-border); padding-bottom: 8px;">
+                        Composition du Menu
+                    </h3>
+                    <div id="composition-list">
+                        <!-- Plats et allergènes injectés dynamiquement -->
+                    </div>
+                </div>
+
+                <!-- Avertissement Légal RGAA & Sanitaire -->
+                <div class="warning-box-inco">
+                    <strong>⚠️ Conditions importantes de réservation & conservation</strong>
+                    <ul style="list-style: none; margin-top: 6px;">
+                        <li>• <strong>Délai de réservation :</strong> Ce menu festif nécessite une commande ferme au minimum 7 jours ouvrés avant la date de livraison.</li>
+                        <li>• <strong>Précautions de stockage :</strong> Produits frais à conserver impérativement entre 0°C et +4°C dès réception. À consommer dans les 24 heures.</li>
+                    </ul>
+                </div>
+
+            </section>
+
+            <!-- Colonne Droite : Configurateur Sticky de Devis -->
+            <aside class="configurator-sticky">
+                <h3>Configurer votre commande</h3>
+                <div class="configurator-price-header" id="config-prix-unit">48,00 € / personne</div>
+                <div class="configurator-min-notice" id="config-min-convives">Minimum 6 convives</div>
+
+                <!-- Compteur de Convives interactif -->
+                <div style="text-align: center; margin-bottom: 16px;">
+                    <div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 6px;">Nombre de personnes :</div>
+                    <div style="display: inline-flex; align-items: center; gap: 12px;">
+                        <button type="button" class="counter-btn-lg" id="btn-devis-minus">−</button>
+                        <strong style="font-size: 15px; min-width: 90px;" id="display-nb-convives">12 convives</strong>
+                        <button type="button" class="counter-btn-lg" id="btn-devis-plus">+</button>
+                    </div>
+                </div>
+
+                <!-- Bannière Remise Groupe -10% -->
+                <div class="discount-applied-banner" id="banner-remise" style="display: none;">
+                    🎉 Remise de groupe de 10% appliquée ! (<span id="remise-par-personne">-4,80 €</span> / pers.)
+                </div>
+
+                <!-- Champs de Configuration -->
+                <div class="config-field-group">
+                    <label for="cfg-adresse">Adresse de livraison</label>
+                    <input type="text" id="cfg-adresse" class="config-input" value="15 Avenue de l'Abreuvoir, 33700 Mérignac">
+                </div>
+
+                <div class="config-row-2">
+                    <div class="config-field-group">
+                        <label for="cfg-ville">Ville</label>
+                        <input type="text" id="cfg-ville" class="config-input" value="Mérignac">
+                    </div>
+                    <div class="config-field-group">
+                        <label for="cfg-distance">Distance (km)</label>
+                        <input type="number" id="cfg-distance" class="config-input" value="15" min="0" step="0.5">
+                    </div>
+                </div>
+
+                <div class="config-field-group">
+                    <label for="cfg-date">Date de réception (min. 7 jours)</label>
+                    <input type="datetime-local" id="cfg-date" class="config-input">
+                </div>
+
+                <!-- Lignes de Décompte Devis -->
+                <div class="summary-rows">
+                    <div class="summary-row" id="row-livraison-desc" style="color: var(--color-text-muted); font-size: 11px;">
+                        Livraison hors Bordeaux métropole (15 km) :
+                    </div>
+                    <div class="summary-row" style="font-size: 11px; margin-bottom: 10px;">
+                        <span id="calcul-livraison-detail">Forfait 5,00 € + (15 km × 0,59 €)</span>
+                        <strong id="val-frais-livraison">13,85 €</strong>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Sous-total repas :</span>
+                        <strong id="val-sous-total-repas">518,40 €</strong>
+                    </div>
+
+                    <div class="summary-row">
+                        <span>Frais de livraison :</span>
+                        <strong id="val-frais-livraison-total">13,85 €</strong>
+                    </div>
+                </div>
+
+                <!-- Total TTC -->
+                <div class="total-command-block">
+                    <div class="total-command-title">Total de la commande TTC :</div>
+                    <div class="total-command-price" id="val-total-ttc">532,25 €</div>
+                </div>
+
+                <!-- Bouton de validation final -->
+                <button type="button" class="btn-cta" id="btn-valider-commande" style="width: 100%; height: 46px; font-size: 14px;">
+                    Valider et passer à la commande &rarr;
+                </button>
+
+                <div style="text-align: center; font-size: 11px; color: var(--color-text-muted); margin-top: 10px;">
+                    🔒 Aucun prélèvement immédiat — Validation du devis sous 24h
+                </div>
+            </aside>
+
+        </div>
+    </main>
+
+    <!-- Footer 3 colonnes -->
+    <footer class="site-footer">
+        <div class="container-1296">
+            <div class="footer-columns">
+                <div class="footer-col">
+                    <h4>Vite & Gourmand</h4>
+                    <p>Traiteur événementiel depuis 25 ans à Bordeaux.</p>
+                    <p>12 Cours de l'Intendance, 33000 Bordeaux</p>
+                    <p>05 56 XX XX XX / contact@vitegourmand.fr</p>
+                </div>
+                <div class="footer-col center">
+                    <h4>Nos Horaires d'Ouverture</h4>
+                    <p><strong>Lundi au Vendredi :</strong> 08h30 – 19h00</p>
+                    <p><strong>Samedi :</strong> 09h00 – 20h00 (Prestations en continu)</p>
+                    <p><strong>Dimanche :</strong> 09h00 – 15h00 (Livraisons programmées)</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Liens Utiles</h4>
+                    <ul class="footer-links">
+    <li><a href="/menus.html">Nos Menus Événementiels</a></li>
+    <li><a href="/contact.html">Demande de Devis & Contact</a></li>
+    <li><a href="/mentions-legales.html">Mentions Légales</a></li>
+    <li><a href="/cgv.html">Conditions Générales de Vente (CGV)</a></li>
+</ul>
+                </div>
+            </div>
+            <div class="footer-bottom-bar">
+                &copy; 2026 Vite & Gourmand — Tous droits réservés. Réalisé par FastDev.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script de configuration interactive -->
+    <script src="/js/commande.js"></script>
+</body>
+</html>

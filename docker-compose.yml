@@ -1,0 +1,74 @@
+services:
+  # ---------------------------------------------------------------------------
+  # Serveur Web & API Backend PHP
+  # ---------------------------------------------------------------------------
+  backend:
+    build: ./backend
+    container_name: vg-backend
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./backend:/var/www/html
+    environment:
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_NAME: vite_et_gourmand
+      DB_USER: root
+      DB_PASS: root
+    depends_on:
+      - mariadb
+
+  # ---------------------------------------------------------------------------
+  # Base de données relationnelle (MySQL / MariaDB)
+  # ---------------------------------------------------------------------------
+  mariadb:
+    image: mariadb:11.4
+    container_name: vg-database-sql
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: vite_et_gourmand
+      MYSQL_USER: vg_user
+      MYSQL_PASSWORD: vg_password
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d:ro
+      - mariadb_data:/var/lib/mysql
+
+  # ---------------------------------------------------------------------------
+  # Base de données NoSQL (MongoDB)
+  # ---------------------------------------------------------------------------
+  mongodb:
+    image: mongo:7.0
+    container_name: vg-database-nosql
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+      MONGO_INITDB_DATABASE: vite_et_gourmand_analytics
+    volumes:
+      - mongo_data:/data/db
+
+  # ---------------------------------------------------------------------------
+  # Interface web phpMyAdmin
+  # ---------------------------------------------------------------------------
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: vg-phpmyadmin
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    environment:
+      PMA_HOST: mariadb
+      PMA_USER: root
+      PMA_PASSWORD: root
+    depends_on:
+      - mariadb
+
+volumes:
+  mariadb_data:
+  mongo_data:
