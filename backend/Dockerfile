@@ -15,3 +15,9 @@ RUN sed -ri -e 's!/var/www/!${APACHE_DOCUMENT_ROOT}!g' /etc/apache2/apache2.conf
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
 WORKDIR /var/www/html
+
+# Copie l'ensemble des fichiers du projet dans le dossier web d'Apache
+COPY . /var/www/html/
+
+# Donne les droits au serveur Apache
+RUN chown -R www-data:www-data /var/www/html
