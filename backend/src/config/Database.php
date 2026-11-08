@@ -12,11 +12,15 @@ class Database
     public static function getConnection(): PDO
     {
         if (self::$instance === null) {
-            $host = getenv('DB_HOST') ?: 'mariadb';
-            $port = getenv('DB_PORT') ?: '3306';
-            $dbName = getenv('DB_NAME') ?: 'vite_et_gourmand';
-            $user = getenv('DB_USER') ?: 'root';
-            $pass = getenv('DB_PASS') ?: 'root';
+            $host   = getenv('DB_HOST')     ?: ($_ENV['DB_HOST'] ?? 'mariadb');
+            $port   = getenv('DB_PORT')     ?: ($_ENV['DB_PORT'] ?? '3306');
+            $dbName = getenv('DB_NAME')     ?: ($_ENV['DB_NAME'] ?? 'vite_gourmand');
+            $user   = getenv('DB_USER')     ?: ($_ENV['DB_USER'] ?? 'root');
+            
+            // Gère DB_PASSWORD (défini sur Render) et conserve le repli DB_PASS (local)
+            $pass   = getenv('DB_PASSWORD') 
+                      ?: ($_ENV['DB_PASSWORD'] 
+                      ?? (getenv('DB_PASS') ?: ($_ENV['DB_PASS'] ?? 'root')));
 
             $dsn = "mysql:host={$host};port={$port};dbname={$dbName};charset=utf8mb4";
 
@@ -25,6 +29,15 @@ class Database
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                 PDO::ATTR_EMULATE_PREPARES   => false,
             ];
+
+            // Activation TLS / SSL pour TiDB Cloud (contourné automatiquement si vous êtes sur MariaDB en local)
+            if (!in_array($host, ['mariadb', 'localhost', '127.0.0.1'])) {
+                $caBundle = '/etc/ssl/certs/ca-certificates.crt';
+                if (file_exists($caBundle)) {
+                    $options[PDO::MYSQL_ATTR_SSL_CA] = $caBundle;
+                }
+                $options[PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT] = false;
+            }
 
             try {
                 self::$instance = new PDO($dsn, $user, $pass, $options);
