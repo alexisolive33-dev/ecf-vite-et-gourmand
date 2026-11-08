@@ -66,12 +66,37 @@ document.addEventListener('DOMContentLoaded', () => {
         breadcrumbCurrent.textContent = menu.titre;
         menuTitre.textContent = menu.titre;
         menuDesc.textContent = menu.description;
-        photoLabel.textContent = `[Photo HD : ${menu.titre}]`;
+        
+        // Remplacement du texte temporaire par la véritable balise photo
+        const imageUrl = menu.image_url || '/assets/images/menus/default-menu.webp';
+        if (photoLabel) {
+            photoLabel.innerHTML = `
+                <img 
+                    src="${imageUrl}" 
+                    alt="Visuel haute définition du menu ${menu.titre}" 
+                    fetchpriority="high"
+                    style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                    onerror="this.onerror=null; this.src='/assets/images/menus/default-menu.webp';"
+                >
+            `;
+            // Calage du conteneur en fond pour recouvrir tout l'en-tête
+            photoLabel.style.width = '100%';
+            photoLabel.style.height = '100%';
+            photoLabel.style.position = 'absolute';
+            photoLabel.style.top = '0';
+            photoLabel.style.left = '0';
+            photoLabel.style.zIndex = '1';
+        }
         
         const regimeAffiche = menu.regime ? (menu.regime.charAt(0).toUpperCase() + menu.regime.slice(1)) : 'Classique';
         badgeRegime.textContent = regimeAffiche;
         badgeStock.textContent = `Il reste ${menu.stock_disponible} commandes disponibles`;
         badgeThemeTop.textContent = `THÈME : ${(menu.theme || '').toUpperCase()}`;
+
+        // Sécurisation de l'affichage des badges au premier plan au-dessus de la photo
+        if (badgeRegime) badgeRegime.style.zIndex = '2';
+        if (badgeStock) badgeStock.style.zIndex = '2';
+        if (badgeThemeTop) badgeThemeTop.style.zIndex = '2';
 
         configPrixUnit.textContent = `${parseFloat(menu.prix_unitaire_ttc).toFixed(2).replace('.', ',')} € / personne`;
         configMinConvives.textContent = `Minimum ${menu.convives_min} convives`;

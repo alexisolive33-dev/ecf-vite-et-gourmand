@@ -228,7 +228,7 @@ h3 {
     padding: 64px 0;
 }
 
-/* --- Hero Section (Accueil) --- */
+/* --- Hero Section (Accueil) & Images --- */
 .hero-layout {
     display: grid;
     grid-template-columns: 1.1fr 0.9fr;
@@ -249,18 +249,29 @@ h3 {
     max-width: 520px;
 }
 
+.hero-image-container,
 .hero-image-placeholder {
     width: 100%;
-    height: 340px;
+    height: 380px;
     background-color: #E5E7EB;
     border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-card);
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--color-text-muted);
     font-weight: 600;
     text-align: center;
-    padding: 24px;
+    position: relative;
+}
+
+.hero-img,
+.hero-image-placeholder img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 /* --- Section Piliers de Savoir-Faire --- */
@@ -492,7 +503,7 @@ h3 {
     color: var(--color-text-title);
 }
 
-/* --- Grille des Menus (9 colonnes) --- */
+/* --- Grille des Menus (menus.html) --- */
 .menus-grid-2x2 {
     display: grid;
     grid-template-columns: repeat(2, 1fr);
@@ -520,12 +531,25 @@ h3 {
     height: 180px;
     background-color: #E5E7EB;
     position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--color-text-muted);
     font-size: 12px;
     font-weight: 600;
+}
+
+.card-menu-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.card-menu-catalog:hover .card-menu-image img {
+    transform: scale(1.04);
 }
 
 .pill-regime {
@@ -539,6 +563,7 @@ h3 {
     font-weight: 600;
     padding: 3px 10px;
     border-radius: var(--radius-pill);
+    z-index: 2;
 }
 
 .pill-stock {
@@ -555,6 +580,7 @@ h3 {
     display: flex;
     align-items: center;
     gap: 4px;
+    z-index: 2;
 }
 
 .pill-stock::before {
@@ -652,11 +678,19 @@ h3 {
     background-color: #E5E7EB;
     border-radius: var(--radius-lg);
     position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--color-text-muted);
     font-weight: 600;
+}
+
+.order-menu-header-img img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
 }
 
 .composition-box {
@@ -860,6 +894,11 @@ h3 {
     .footer-columns {
         grid-template-columns: 1fr;
         gap: 32px;
+    }
+
+    .hero-image-container,
+    .hero-image-placeholder {
+        height: 260px;
     }
 
     .menus-grid-2x2 {

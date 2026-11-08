@@ -184,12 +184,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Affichage soigné avec majuscule pour le badge régime
             const regimeAffiche = menu.regime ? (menu.regime.charAt(0).toUpperCase() + menu.regime.slice(1)) : 'Classique';
+            const imageUrl = menu.image_url || '/assets/images/menus/default-menu.webp';
 
             card.innerHTML = `
                 <div class="card-menu-image">
                     <span class="pill-regime">${regimeAffiche}</span>
-                    <span class="pill-stock">Il reste ${menu.stock_disponible} commandes</span>
-                    [Photo : ${menu.titre}]
+                    <span class="pill-stock">● Il reste ${menu.stock_disponible} commandes</span>
+                    <img 
+                        src="${imageUrl}" 
+                        alt="Présentation du menu ${menu.titre}" 
+                        loading="lazy"
+                        width="400"
+                        height="180"
+                        onerror="this.onerror=null; this.src='/assets/images/menus/default-menu.webp';"
+                    >
                 </div>
                 <div class="card-menu-body">
                     <span class="surtitre-or">THÈME : ${(menu.theme || '').toUpperCase()}</span>
