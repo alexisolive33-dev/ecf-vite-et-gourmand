@@ -1,4 +1,40 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // 0. Synchronisation dynamique de la session dans la barre de navigation
+    const authToken = localStorage.getItem('auth_token');
+    const userProfileRaw = localStorage.getItem('user_profile');
+    const user = userProfileRaw ? JSON.parse(userProfileRaw) : null;
+
+    majNavbar();
+
+    function majNavbar() {
+        const navConnexionLink = document.querySelector('a[href*="login"]') || 
+                                 Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toLowerCase() === 'connexion');
+
+        if (navConnexionLink && user) {
+            const profileWrapper = document.createElement('div');
+            profileWrapper.style.cssText = 'display: inline-flex; align-items: center; gap: 10px;';
+            profileWrapper.innerHTML = `
+                <span style="font-size: 13px; font-weight: 600; color: var(--color-primary, #721B29);">
+                    👤 ${user.prenom}
+                </span>
+                <button type="button" id="btn-logout" style="background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                    Déconnexion
+                </button>
+            `;
+
+            navConnexionLink.replaceWith(profileWrapper);
+
+            const btnLogout = document.getElementById('btn-logout');
+            if (btnLogout) {
+                btnLogout.addEventListener('click', () => {
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user_profile');
+                    window.location.reload();
+                });
+            }
+        }
+    }
+
     let allMenus = [];
     let currentRegime = '';
     let currentMinConvives = 4;
@@ -23,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .toLowerCase();
     }
 
-    // 1. Récupération des menus depuis l'API REST
+    // 1. Récupération des formules depuis l'API REST
     fetch('/api/menus')
         .then(res => res.json())
         .then(res => {
@@ -46,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
             catalogGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: var(--color-primary);">Impossible de charger les formules.</p>';
         });
 
-    // 2. Écouteurs de filtres
+    // 2. Écouteurs des filtres
     if (rangePrix) {
         rangePrix.addEventListener('input', (e) => {
             if (labelPrixMax) labelPrixMax.textContent = `Prix maximum : ${e.target.value} € / pers`;
@@ -159,7 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const estConnecte = !!localStorage.getItem('auth_token');
+        const estConnecte = !!(authToken && user);
 
         menus.forEach(menu => {
             const card = document.createElement('article');
@@ -188,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const delai = menu.delai_min_jours || 7;
             const stockage = menu.conditions_stockage || 'Conserver entre 0°C et +4°C';
 
-            // Lien direct ou redirection d'authentification exigée par l'ECF
+            // Lien direct si authentifié, redirection vers connexion/inscription si visiteur
             const targetUrl = estConnecte 
                 ? `/commande.html?id=${menu.id}` 
                 : `/login.html?redirect=${encodeURIComponent('/commande.html?id=' + menu.id)}`;
@@ -211,7 +247,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3>${menu.titre}</h3>
                     <p>${menu.description}</p>
                     
-                    <!-- Exigence ECF : Mise en évidence des conditions -->
                     <div style="background: #F9FAFB; border-left: 3px solid var(--color-primary); padding: 6px 10px; margin: 10px 0; font-size: 11px; color: #4B5563;">
                         <strong>Conditions :</strong> Réservation ${delai}j avant • ${stockage}
                     </div>
