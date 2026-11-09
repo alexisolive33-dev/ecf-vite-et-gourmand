@@ -47,7 +47,7 @@ if ($uri === '/api') {
     exit;
 }
 
-// Authentification
+// Authentification & Profil
 if ($uri === '/api/auth/login' && $method === 'POST') {
     (new AuthController())->login();
     exit;
@@ -60,6 +60,12 @@ if ($uri === '/api/auth/register' && $method === 'POST') {
 
 if ($uri === '/api/auth/forgot-password' && $method === 'POST') {
     (new AuthController())->forgotPassword();
+    exit;
+}
+
+// Espace Utilisateur - Mise à jour du profil
+if (($uri === '/api/utilisateurs/me' || $uri === '/api/auth/profile') && $method === 'PUT') {
+    (new CommandeController())->updateProfil();
     exit;
 }
 
@@ -100,6 +106,18 @@ if ($uri === '/api/commandes/simuler' && $method === 'POST') {
 
 if ($uri === '/api/commandes' && $method === 'POST') {
     (new CommandeController())->creer();
+    exit;
+}
+
+// Espace Client - Commandes personnelles
+if ($uri === '/api/commandes/mes-commandes' && $method === 'GET') {
+    (new CommandeController())->mesCommandes();
+    exit;
+}
+
+// Espace Client - Annulation de commande
+if (preg_match('#^/api/commandes/([0-9]+)/annuler$#', $uri, $matches) && $method === 'PUT') {
+    (new CommandeController())->annulerCommande((int)$matches[1]);
     exit;
 }
 

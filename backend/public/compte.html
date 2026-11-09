@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Espace Client | Vite & Gourmand</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        .account-header {
+            margin-top: 24px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--color-border);
+            padding-bottom: 16px;
+        }
+
+        /* Navigation par onglets */
+        .account-tabs {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 28px;
+            border-bottom: 2px solid var(--color-border);
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 12px 20px;
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--color-text-muted);
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            margin-bottom: -2px;
+            transition: var(--transition-smooth);
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tab-btn:hover {
+            color: var(--color-primary);
+        }
+
+        .tab-btn.active {
+            color: var(--color-primary);
+            border-bottom-color: var(--color-primary);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Carte de commande */
+        .order-card {
+            background: #FFFFFF;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            box-shadow: var(--shadow-card);
+            padding: 24px;
+            margin-bottom: 24px;
+        }
+
+        .order-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #F3F4F6;
+        }
+
+        .order-num {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--color-text-title);
+        }
+
+        .order-date {
+            font-size: 12px;
+            color: var(--color-text-muted);
+        }
+
+        /* Badges de statut */
+        .status-badge {
+            display: inline-block;
+            padding: 5px 12px;
+            border-radius: 9999px;
+            font-size: 12px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .status-en-attente { background: #FEF3C7; color: #92400E; }
+        .status-accepte, .status-acceptee { background: #E0E7FF; color: #3730A3; }
+        .status-en-preparation { background: #DBEAFE; color: #1E40AF; }
+        .status-en-cours-de-livraison { background: #FDE68A; color: #78350F; }
+        .status-livre, .status-livree, .status-terminee { background: #DCFCE7; color: #166534; }
+        .status-annulee { background: #FEE2E2; color: #991B1B; }
+
+        /* Corps de commande */
+        .order-card-body {
+            display: grid;
+            grid-template-columns: 140px 1fr auto;
+            gap: 20px;
+            align-items: center;
+            padding: 18px 0;
+        }
+
+        .order-thumb {
+            width: 140px;
+            height: 95px;
+            object-fit: cover;
+            border-radius: var(--radius-sm);
+        }
+
+        .order-details h4 {
+            font-size: 16px;
+            color: var(--color-text-title);
+            margin-bottom: 6px;
+        }
+
+        .order-details p {
+            font-size: 13px;
+            color: var(--color-text-body);
+            margin: 3px 0;
+        }
+
+        .order-pricing {
+            text-align: right;
+        }
+
+        .order-total {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--color-primary);
+        }
+
+        /* Frise chronologique de suivi (Timeline) */
+        .timeline-tracker {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 18px;
+            padding: 16px;
+            background: #F9FAFB;
+            border-radius: var(--radius-sm);
+            position: relative;
+        }
+
+        .timeline-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+            flex: 1;
+        }
+
+        .timeline-circle {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #E5E7EB;
+            color: #6B7280;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .timeline-step.completed .timeline-circle {
+            background: var(--color-primary);
+            color: #FFFFFF;
+        }
+
+        .timeline-step.current .timeline-circle {
+            background: var(--color-secondary);
+            color: #FFFFFF;
+            box-shadow: 0 0 0 3px rgba(184, 134, 11, 0.25);
+        }
+
+        .timeline-label {
+            font-size: 11px;
+            color: var(--color-text-muted);
+            font-weight: 600;
+        }
+
+        .timeline-step.completed .timeline-label,
+        .timeline-step.current .timeline-label {
+            color: var(--color-text-title);
+        }
+
+        .order-actions {
+            margin-top: 16px;
+            padding-top: 14px;
+            border-top: 1px solid #F3F4F6;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+
+        .btn-cancel-order {
+            background: #FFF1F2;
+            border: 1px solid #FDA4AF;
+            color: #E11D48;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-cancel-order:hover {
+            background: #FFE4E6;
+        }
+
+        .btn-avis-order {
+            background: var(--color-secondary);
+            border: none;
+            color: #FFFFFF;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        /* Formulaire de profil */
+        .profil-form-card {
+            background: #FFFFFF;
+            border: 1px solid var(--color-border);
+            border-top: 4px solid var(--color-primary);
+            border-radius: var(--radius-md);
+            padding: 32px;
+            max-width: 680px;
+            box-shadow: var(--shadow-card);
+        }
+
+        @media (max-width: 768px) {
+            .order-card-body {
+                grid-template-columns: 1fr;
+                text-align: left;
+            }
+            .order-pricing {
+                text-align: left;
+            }
+            .timeline-tracker {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 12px;
+            }
+            .timeline-step {
+                flex-direction: row;
+                gap: 10px;
+                text-align: left;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Barre de Navigation -->
+    <header class="header-nav">
+        <div class="navbar-container">
+            <a href="/" class="brand-wrapper">
+                <span class="brand-name">Vite & Gourmand</span>
+                <span class="brand-tagline">Traiteur événementiel • Bordeaux (25 ans)</span>
+            </a>
+            <nav>
+                <ul class="nav-menu">
+                    <li><a href="/" class="nav-link">Accueil</a></li>
+                    <li><a href="/menus.html" class="nav-link">Nos Menus</a></li>
+                    <li><a href="/contact.html" class="nav-link">Contact</a></li>
+                </ul>
+            </nav>
+            <div id="nav-auth-container">
+                <a href="/login.html" class="btn-connexion">Connexion</a>
+            </div>
+        </div>
+    </header>
+
+    <main class="container-1296 page-section">
+        
+        <div class="account-header">
+            <span class="surtitre-or">ESPACE PERSONNEL</span>
+            <h1 id="user-welcome-title">Bienvenue sur votre compte</h1>
+            <p>Retrouvez l'historique et le suivi de vos devis et commandes traiteur chez Julie & José.</p>
+        </div>
+
+        <!-- Onglets Navigation -->
+        <div class="account-tabs">
+            <button class="tab-btn active" data-tab="tab-commandes">
+                📦 Mes Commandes & Prestations
+            </button>
+            <button class="tab-btn" data-tab="tab-profil">
+                👤 Mes Informations Personnelles
+            </button>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- ONGLET 1 : HISTORIQUE ET SUIVI DES COMMANDES    -->
+        <!-- ============================================== -->
+        <section id="tab-commandes" class="tab-content active">
+            <div id="orders-loading" style="text-align: center; padding: 40px; color: var(--color-text-muted);">
+                Chargement de vos commandes en cours...
+            </div>
+
+            <div id="orders-empty" style="display: none; text-align: center; padding: 50px 20px; background: #FFFFFF; border-radius: var(--radius-md); border: 1px solid var(--color-border);">
+                <div style="font-size: 40px; margin-bottom: 12px;">🍽️</div>
+                <h3 style="color: var(--color-text-title); margin-bottom: 8px;">Vous n'avez pas encore passé de commande</h3>
+                <p style="font-size: 14px; color: var(--color-text-muted); margin-bottom: 20px;">
+                    Découvrez nos menus gastronomiques élaborés avec des produits frais de Gironde.
+                </p>
+                <a href="/menus.html" class="btn-cta">Consulter notre catalogue &rarr;</a>
+            </div>
+
+            <div id="orders-list"></div>
+        </section>
+
+        <!-- ============================================== -->
+        <!-- ONGLET 2 : PROFIL & COORDONNÉES                 -->
+        <!-- ============================================== -->
+        <section id="tab-profil" class="tab-content">
+            <div class="profil-form-card">
+                <h3 style="margin-bottom: 20px;">Modifier vos informations</h3>
+
+                <div id="profil-alert-success" class="discount-applied-banner" style="display: none; margin-bottom: 20px;">
+                    ✅ Vos informations ont été mises à jour avec succès.
+                </div>
+                <div id="profil-alert-error" style="display: none; background: #FEE2E2; color: #991B1B; padding: 12px; border-radius: 4px; font-size: 13px; margin-bottom: 20px;"></div>
+
+                <form id="form-update-profil">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+                        <div>
+                            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Prénom *</label>
+                            <input type="text" id="prof-prenom" class="contact-input" required>
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Nom *</label>
+                            <input type="text" id="prof-nom" class="contact-input" required>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Adresse e-mail (identifiant)</label>
+                        <input type="email" id="prof-email" class="contact-input" disabled style="background-color: #E5E7EB; cursor: not-allowed;">
+                        <small style="color: var(--color-text-muted); font-size: 11px;">L'adresse e-mail sert de clé unique et ne peut pas être changée.</small>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Numéro de téléphone / GSM *</label>
+                        <input type="tel" id="prof-tel" class="contact-input" placeholder="06 12 34 56 78" required>
+                    </div>
+
+                    <div style="margin-bottom: 16px;">
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Adresse postale de livraison habituelle</label>
+                        <input type="text" id="prof-adresse" class="contact-input" placeholder="Numéro et nom de rue">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px; margin-bottom: 24px;">
+                        <div>
+                            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Code Postal</label>
+                            <input type="text" id="prof-cp" class="contact-input" placeholder="33000">
+                        </div>
+                        <div>
+                            <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Ville</label>
+                            <input type="text" id="prof-ville" class="contact-input" placeholder="Bordeaux">
+                        </div>
+                    </div>
+
+                    <div style="border-top: 1px solid var(--color-border); padding-top: 18px; margin-bottom: 24px;">
+                        <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Nouveau mot de passe (optionnel)</label>
+                        <input type="password" id="prof-new-pwd" class="contact-input" placeholder="Laisser vide pour conserver le mot de passe actuel">
+                    </div>
+
+                    <button type="submit" id="btn-save-profil" class="btn-cta" style="width: 100%;">
+                        Enregistrer les modifications
+                    </button>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Modale de dépôt d'avis (exigence ECF Page 7) -->
+    <div id="modal-avis-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
+        <div style="background: #FFFFFF; border-radius: var(--radius-md); padding: 32px; max-width: 460px; width: 90%; box-shadow: var(--shadow-modal);">
+            <h3 style="margin-bottom: 10px;">Partager votre avis</h3>
+            <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
+                Votre prestation est terminée ! Aidez Julie & José en notant votre expérience.
+            </p>
+            <form id="form-avis">
+                <input type="hidden" id="avis-commande-id">
+                <div style="margin-bottom: 14px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Note globale :</label>
+                    <select id="avis-note" class="contact-select" style="width: 100%;">
+                        <option value="5">★★★★★ (5/5) — Exceptionnel</option>
+                        <option value="4">★★★★☆ (4/5) — Très bon</option>
+                        <option value="3">★★★☆☆ (3/5) — Conforme à mes attentes</option>
+                        <option value="2">★★☆☆☆ (2/5) — Décevant</option>
+                        <option value="1">★☆☆☆☆ (1/5) — Insatisfaisant</option>
+                    </select>
+                </div>
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 6px;">Votre commentaire :</label>
+                    <textarea id="avis-commentaire" rows="4" class="contact-textarea" placeholder="Partagez vos impressions sur la fraîcheur des plats, la présentation..." required></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" id="btn-close-avis" style="background: none; border: 1px solid var(--color-border); padding: 8px 14px; border-radius: var(--radius-sm); cursor: pointer;">Annuler</button>
+                    <button type="submit" class="btn-cta" style="padding: 8px 16px;">Envoyer mon avis</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="site-footer">
+        <div class="container-1296">
+            <div class="footer-columns">
+                <div class="footer-col">
+                    <h4>Vite & Gourmand</h4>
+                    <p>Traiteur événementiel depuis 25 ans à Bordeaux.</p>
+                    <p>12 Cours de l'Intendance, 33000 Bordeaux</p>
+                    <p>05 56 XX XX XX / contact@vitegourmand.fr</p>
+                </div>
+                <div class="footer-col center">
+                    <h4>Nos Horaires d'Ouverture</h4>
+                    <p><strong>Lundi au Vendredi :</strong> 08h30 – 19h00</p>
+                    <p><strong>Samedi :</strong> 09h00 – 20h00 (Prestations en continu)</p>
+                    <p><strong>Dimanche :</strong> 09h00 – 15h00 (Livraisons programmées)</p>
+                </div>
+                <div class="footer-col">
+                    <h4>Liens Utiles</h4>
+                    <ul class="footer-links">
+                        <li><a href="/menus.html">Nos Menus Événementiels</a></li>
+                        <li><a href="/contact.html">Demande de Devis & Contact</a></li>
+                        <li><a href="/mentions-legales.html">Mentions Légales</a></li>
+                        <li><a href="/cgv.html">Conditions Générales de Vente (CGV)</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom-bar">
+                &copy; 2026 Vite & Gourmand — Tous droits réservés. Réalisé par FastDev.
+            </div>
+        </div>
+    </footer>
+
+    <!-- Script de l'Espace Client -->
+    <script src="/js/compte.js"></script>
+</body>
+</html>
