@@ -2,7 +2,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let allMenus = [];
     let currentRegime = '';
     let currentMinConvives = 4;
-    let convivesFilterActive = false; // Ne filtre pas les convives tant que l'utilisateur n'a pas cliqué sur + ou -
+    let convivesFilterActive = false;
 
     const catalogGrid = document.getElementById('catalog-grid');
     const rangePrix = document.getElementById('filter-range-prix');
@@ -15,7 +15,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const valConvives = document.getElementById('val-convives');
     const btnReset = document.getElementById('btn-reset-filters');
 
-    // Fonction utilitaire : supprime les accents, espaces et minuscules pour comparer fidèlement
     function normaliser(str) {
         return (str || '')
             .normalize("NFD")
@@ -47,14 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
             catalogGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: var(--color-primary);">Impossible de charger les formules.</p>';
         });
 
-    // 2. Gestion des interactions des filtres
-    rangePrix.addEventListener('input', (e) => {
-        labelPrixMax.textContent = `Prix maximum : ${e.target.value} € / pers`;
-        applyFilters();
-    });
+    // 2. Écouteurs de filtres
+    if (rangePrix) {
+        rangePrix.addEventListener('input', (e) => {
+            if (labelPrixMax) labelPrixMax.textContent = `Prix maximum : ${e.target.value} € / pers`;
+            applyFilters();
+        });
+    }
 
-    selectTheme.addEventListener('change', applyFilters);
-
+    if (selectTheme) selectTheme.addEventListener('change', applyFilters);
     checkboxesBudget.forEach(cb => cb.addEventListener('change', applyFilters));
 
     dietPills.forEach(pill => {
@@ -66,40 +66,46 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    btnConvivesMinus.addEventListener('click', () => {
-        if (currentMinConvives > 1) {
-            currentMinConvives--;
+    if (btnConvivesMinus) {
+        btnConvivesMinus.addEventListener('click', () => {
+            if (currentMinConvives > 1) {
+                currentMinConvives--;
+                convivesFilterActive = true;
+                if (valConvives) valConvives.textContent = `${currentMinConvives} pers.`;
+                applyFilters();
+            }
+        });
+    }
+
+    if (btnConvivesPlus) {
+        btnConvivesPlus.addEventListener('click', () => {
+            currentMinConvives++;
             convivesFilterActive = true;
-            valConvives.textContent = `${currentMinConvives} pers.`;
+            if (valConvives) valConvives.textContent = `${currentMinConvives} pers.`;
             applyFilters();
-        }
-    });
+        });
+    }
 
-    btnConvivesPlus.addEventListener('click', () => {
-        currentMinConvives++;
-        convivesFilterActive = true;
-        valConvives.textContent = `${currentMinConvives} pers.`;
-        applyFilters();
-    });
+    if (btnReset) {
+        btnReset.addEventListener('click', () => {
+            if (rangePrix) rangePrix.value = 65;
+            if (labelPrixMax) labelPrixMax.textContent = 'Prix maximum : 65 € / pers';
+            if (selectTheme) selectTheme.value = '';
+            currentRegime = '';
+            convivesFilterActive = false;
+            currentMinConvives = 4;
+            if (valConvives) valConvives.textContent = '4 pers.';
+            dietPills.forEach(p => p.classList.remove('active'));
+            if (dietPills[0]) dietPills[0].classList.add('active');
+            checkboxesBudget.forEach(cb => cb.checked = false);
+            applyFilters();
+        });
+    }
 
-    btnReset.addEventListener('click', () => {
-        rangePrix.value = 65;
-        labelPrixMax.textContent = 'Prix maximum : 65 € / pers';
-        selectTheme.value = '';
-        currentRegime = '';
-        convivesFilterActive = false;
-        currentMinConvives = 4;
-        valConvives.textContent = '4 pers.';
-        dietPills.forEach(p => p.classList.remove('active'));
-        dietPills[0].classList.add('active');
-        checkboxesBudget.forEach(cb => cb.checked = false);
-        applyFilters();
-    });
-
-    // 3. Moteur de filtrage tolérant aux accents
+    // 3. Moteur de filtrage dynamique
     function applyFilters() {
-        const maxPrice = parseFloat(rangePrix.value);
-        const selectedTheme = normaliser(selectTheme.value);
+        const maxPrice = rangePrix ? parseFloat(rangePrix.value) : 999;
+        const selectedTheme = selectTheme ? normaliser(selectTheme.value) : '';
         const checkedBudgets = Array.from(checkboxesBudget).filter(cb => cb.checked).map(cb => cb.value);
 
         const filtered = allMenus.filter(menu => {
@@ -107,10 +113,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const menuRegime = normaliser(menu.regime);
             const targetRegime = normaliser(currentRegime);
 
-            // Filtre curseur de prix
             if (price > maxPrice) return false;
 
-            // Filtre fourchette de budget
             if (checkedBudgets.length > 0) {
                 const matchBudget = checkedBudgets.some(b => {
                     if (b === 'under-30') return price < 30;
@@ -121,12 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (!matchBudget) return false;
             }
 
-            // Filtre thème (insensible aux accents et majuscules)
-            if (selectedTheme && normaliser(menu.theme) !== selectedTheme) {
-                return false;
-            }
+            if (selectedTheme && normaliser(menu.theme) !== selectedTheme) return false;
 
-            // Filtre régime : un menu végétarien ou végan convient aux végétariens
             if (targetRegime) {
                 if (targetRegime === 'vegetarien') {
                     if (menuRegime !== 'vegetarien' && menuRegime !== 'vegan') return false;
@@ -135,7 +135,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // Filtre convives (uniquement si l'utilisateur a modifié le compteur)
             if (convivesFilterActive && parseInt(menu.convives_min) > currentMinConvives) {
                 return false;
             }
@@ -146,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         renderCatalog(filtered);
     }
 
-    // 4. Rendu des cartes conformes à la maquette
+    // 4. Rendu visuel du catalogue
     function renderCatalog(menus) {
         catalogGrid.innerHTML = '';
 
@@ -159,6 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             return;
         }
+
+        const estConnecte = !!localStorage.getItem('auth_token');
 
         menus.forEach(menu => {
             const card = document.createElement('article');
@@ -182,9 +183,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 tagsHtml = '<span class="allergen-tag" style="color: var(--badge-success-text);">Sans allergènes majeurs</span>';
             }
 
-            // Affichage soigné avec majuscule pour le badge régime
             const regimeAffiche = menu.regime ? (menu.regime.charAt(0).toUpperCase() + menu.regime.slice(1)) : 'Classique';
             const imageUrl = menu.image_url || '/assets/images/menus/default-menu.webp';
+            const delai = menu.delai_min_jours || 7;
+            const stockage = menu.conditions_stockage || 'Conserver entre 0°C et +4°C';
+
+            // Lien direct ou redirection d'authentification exigée par l'ECF
+            const targetUrl = estConnecte 
+                ? `/commande.html?id=${menu.id}` 
+                : `/login.html?redirect=${encodeURIComponent('/commande.html?id=' + menu.id)}`;
 
             card.innerHTML = `
                 <div class="card-menu-image">
@@ -204,6 +211,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     <h3>${menu.titre}</h3>
                     <p>${menu.description}</p>
                     
+                    <!-- Exigence ECF : Mise en évidence des conditions -->
+                    <div style="background: #F9FAFB; border-left: 3px solid var(--color-primary); padding: 6px 10px; margin: 10px 0; font-size: 11px; color: #4B5563;">
+                        <strong>Conditions :</strong> Réservation ${delai}j avant • ${stockage}
+                    </div>
+
                     <div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 6px;">Allergènes :</div>
                     <div class="allergenes-tags-container">
                         ${tagsHtml}
@@ -212,8 +224,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="card-menu-price">${parseFloat(menu.prix_unitaire_ttc).toFixed(2)} €</div>
                     <div class="card-menu-min">/ personne (Min. ${menu.convives_min} pers.)</div>
 
-                    <a href="/commande.html?id=${menu.id}" class="btn-cta" style="height: 40px; font-size: 13px; width: 100%;">
-                        Voir le détail &rarr;
+                    <a href="${targetUrl}" class="btn-cta" style="height: 40px; font-size: 13px; width: 100%; text-align: center; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
+                        ${estConnecte ? 'Commander ce menu &rarr;' : 'Se connecter pour commander &rarr;'}
                     </a>
                 </div>
             `;

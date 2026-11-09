@@ -27,6 +27,9 @@ CREATE TABLE `utilisateur` (
     `email` VARCHAR(120) NOT NULL UNIQUE,
     `mot_de_passe` VARCHAR(255) NOT NULL,
     `telephone` VARCHAR(20) NOT NULL,
+    `adresse_postale` VARCHAR(255) NOT NULL,
+    `code_postal` VARCHAR(10) NOT NULL DEFAULT '33000',
+    `ville` VARCHAR(80) NOT NULL DEFAULT 'Bordeaux',
     `role` ENUM('client', 'employe', 'admin') NOT NULL DEFAULT 'client',
     `date_creation` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX `idx_utilisateur_role` (`role`)

@@ -3,141 +3,264 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Connexion Administration | Vite & Gourmand</title>
+    <title>Espace Utilisateur & Connexion | Vite & Gourmand</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        .login-section {
+        .auth-section {
             min-height: calc(100vh - 170px);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 40px 24px;
+            padding: 40px 20px;
         }
 
-        .login-card {
-            background: var(--color-bg-card);
-            border: 1px solid var(--color-border);
-            border-top: 4px solid var(--color-primary);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-hover);
-            max-width: 440px;
+        .auth-card {
+            background: var(--color-bg-card, #FFFFFF);
+            border: 1px solid var(--color-border, #E5E7EB);
+            border-top: 4px solid var(--color-primary, #721B29);
+            border-radius: var(--radius-md, 8px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
+            max-width: 520px;
             width: 100%;
-            padding: 36px 32px;
-            text-align: center;
+            padding: 32px 28px;
         }
 
-        .login-card h1 {
-            font-size: 26px;
-            margin-bottom: 8px;
+        .auth-tabs {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 24px;
+            border-bottom: 1px solid var(--color-border, #E5E7EB);
+            padding-bottom: 12px;
         }
 
-        .login-card p {
-            font-size: 13px;
-            color: var(--color-text-muted);
-            margin-bottom: 26px;
-            line-height: 1.5;
+        .tab-btn {
+            background: none;
+            border: none;
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--color-text-muted, #6B7280);
+            padding: 8px 12px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.2s ease;
         }
 
-        .login-form-group {
+        .tab-btn.active {
+            color: var(--color-primary, #721B29);
+            background-color: rgba(114, 27, 41, 0.08);
+        }
+
+        .auth-form-group {
+            margin-bottom: 14px;
             text-align: left;
-            margin-bottom: 18px;
         }
 
-        .login-form-group label {
+        .form-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .form-row .auth-form-group {
+            flex: 1;
+        }
+
+        .auth-form-group label {
             display: block;
             font-size: 11px;
             font-weight: 700;
-            color: var(--color-text-title);
+            color: var(--color-text-title, #1F2937);
             text-transform: uppercase;
             letter-spacing: 0.5px;
-            margin-bottom: 6px;
+            margin-bottom: 5px;
         }
 
-        .login-input {
+        .auth-input {
             width: 100%;
-            height: 44px;
-            padding: 10px 14px;
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm);
-            font-family: var(--font-sans);
+            height: 42px;
+            padding: 8px 12px;
+            border: 1px solid var(--color-border, #D1D5DB);
+            border-radius: 4px;
             font-size: 14px;
-            color: var(--color-text-title);
+            box-sizing: border-box;
             background-color: #FAFAFA;
-            transition: var(--transition-smooth);
         }
 
-        .login-input:focus {
+        .auth-input:focus {
             outline: none;
-            border-color: var(--color-primary);
+            border-color: var(--color-primary, #721B29);
             background-color: #FFFFFF;
-            box-shadow: 0 0 0 3px rgba(114, 27, 41, 0.08);
+            box-shadow: 0 0 0 3px rgba(114, 27, 41, 0.1);
         }
 
-        .login-error-alert {
-            background-color: var(--badge-danger-bg);
-            border: 1px solid var(--badge-danger-border);
-            border-left: 4px solid var(--badge-danger-text);
-            color: var(--badge-danger-text);
-            padding: 12px 14px;
-            border-radius: var(--radius-sm);
+        .password-hint {
+            font-size: 11px;
+            color: #6B7280;
+            margin-top: 4px;
+            line-height: 1.4;
+        }
+
+        .auth-alert {
+            padding: 10px 14px;
+            border-radius: 4px;
+            font-size: 13px;
+            margin-bottom: 16px;
+            display: none;
+        }
+
+        .alert-danger {
+            background-color: #FEE2E2;
+            border: 1px solid #FCA5A5;
+            color: #991B1B;
+        }
+
+        .alert-success {
+            background-color: #DEF7EC;
+            border: 1px solid #84E1BC;
+            color: #03543F;
+        }
+
+        .link-muted {
             font-size: 12px;
-            text-align: left;
-            margin-bottom: 18px;
+            color: var(--color-primary, #721B29);
+            text-decoration: underline;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            margin-top: 10px;
+            display: inline-block;
         }
     </style>
 </head>
 <body>
 
-    <!-- Barre de Navigation -->
     <header class="header-nav">
         <div class="navbar-container">
             <a href="/" class="brand-wrapper">
                 <span class="brand-name">Vite & Gourmand</span>
-                <span class="brand-tagline">Espace Gérance • Julie & José</span>
+                <span class="brand-tagline">Traiteur Événementiel Bordeaux</span>
             </a>
             <nav>
                 <ul class="nav-menu">
                     <li><a href="/" class="nav-link">← Retour au site</a></li>
+                    <li><a href="/menus.html" class="nav-link">Nos Menus</a></li>
                 </ul>
             </nav>
         </div>
     </header>
 
-    <!-- Carte de Connexion -->
-    <main class="login-section">
-        <div class="login-card">
-            <span class="surtitre-or">ACCÈS PRIVILÉGIÉ</span>
-            <h1>Espace Julie & José</h1>
-            <p>Connectez-vous pour piloter les commandes traiteur et consulter les statistiques en direct.</p>
+    <main class="auth-section">
+        <div class="auth-card">
+            
+            <div class="auth-tabs" role="tablist">
+                <button type="button" id="tab-login" class="tab-btn active" role="tab" aria-selected="true" onclick="switchTab('login')">Connexion</button>
+                <button type="button" id="tab-register" class="tab-btn" role="tab" aria-selected="false" onclick="switchTab('register')">Créer un compte</button>
+            </div>
 
-            <div id="login-error" class="login-error-alert" style="display: none;"></div>
+            <div id="auth-alert" class="auth-alert" role="alert"></div>
 
-            <form id="login-form">
-                <div class="login-form-group">
-                    <label for="email">Adresse e-mail</label>
-                    <input type="email" id="email" class="login-input" placeholder="jose@vitegourmand.fr" required autocomplete="email">
+            <!-- 1. FORMULAIRE DE CONNEXION -->
+            <form id="form-login">
+                <div class="auth-form-group">
+                    <label for="login-email">Adresse e-mail</label>
+                    <input type="email" id="login-email" class="auth-input" placeholder="nom@exemple.fr" required autocomplete="email">
                 </div>
 
-                <div class="login-form-group">
-                    <label for="password">Mot de passe</label>
-                    <input type="password" id="password" class="login-input" placeholder="••••••••" required autocomplete="current-password">
+                <div class="auth-form-group">
+                    <label for="login-password">Mot de passe</label>
+                    <input type="password" id="login-password" class="auth-input" placeholder="••••••••" required autocomplete="current-password">
                 </div>
 
-                <button type="submit" id="btn-submit" class="btn-cta" style="width: 100%; margin-top: 8px; height: 46px;">
+                <button type="submit" id="btn-login" class="btn-cta" style="width: 100%; height: 44px; margin-top: 8px;">
                     Se connecter
+                </button>
+
+                <div style="text-align: right;">
+                    <button type="button" class="link-muted" onclick="switchTab('forgot')">Mot de passe oublié ?</button>
+                </div>
+            </form>
+
+            <!-- 2. FORMULAIRE D'INSCRIPTION CLIENT -->
+            <form id="form-register" style="display: none;">
+                <div class="form-row">
+                    <div class="auth-form-group">
+                        <label for="reg-prenom">Prénom</label>
+                        <input type="text" id="reg-prenom" class="auth-input" placeholder="Julie" required>
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="reg-nom">Nom</label>
+                        <input type="text" id="reg-nom" class="auth-input" placeholder="Dupont" required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="auth-form-group">
+                        <label for="reg-email">Adresse e-mail</label>
+                        <input type="email" id="reg-email" class="auth-input" placeholder="julie@exemple.fr" required autocomplete="email">
+                    </div>
+                    <div class="auth-form-group">
+                        <label for="reg-tel">Numéro GSM (Téléphone)</label>
+                        <input type="tel" id="reg-tel" class="auth-input" placeholder="0601020304" pattern="^((\+)33|0)[1-9](\d{2}){4}$" required>
+                    </div>
+                </div>
+
+                <div class="auth-form-group">
+                    <label for="reg-adresse">Adresse postale</label>
+                    <input type="text" id="reg-adresse" class="auth-input" placeholder="12 Cours de l'Intendance" required>
+                </div>
+
+                <div class="form-row">
+                    <div class="auth-form-group" style="flex: 1;">
+                        <label for="reg-cp">Code postal</label>
+                        <input type="text" id="reg-cp" class="auth-input" placeholder="33000" pattern="[0-9]{5}" required>
+                    </div>
+                    <div class="auth-form-group" style="flex: 2;">
+                        <label for="reg-ville">Ville</label>
+                        <input type="text" id="reg-ville" class="auth-input" placeholder="Bordeaux" required>
+                    </div>
+                </div>
+
+                <div class="auth-form-group">
+                    <label for="reg-password">Mot de passe sécurisé</label>
+                    <input type="password" id="reg-password" class="auth-input" placeholder="••••••••••••" required autocomplete="new-password">
+                    <p class="password-hint">
+                        Min. 10 caractères avec au moins 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.
+                    </p>
+                </div>
+
+                <button type="submit" id="btn-register" class="btn-cta" style="width: 100%; height: 44px; margin-top: 10px;">
+                    Valider mon inscription
                 </button>
             </form>
 
-            <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 24px;">
-                🔒 Authentification sécurisée par hachage <strong>bcrypt</strong>
+            <!-- 3. FORMULAIRE MOT DE PASSE OUBLIÉ -->
+            <form id="form-forgot" style="display: none;">
+                <p style="font-size: 13px; color: #4B5563; margin-bottom: 16px;">
+                    Saisissez votre adresse e-mail. Un lien sécurisé vous sera transmis pour définir un nouveau mot de passe.
+                </p>
+                <div class="auth-form-group">
+                    <label for="forgot-email">Votre adresse e-mail</label>
+                    <input type="email" id="forgot-email" class="auth-input" placeholder="nom@exemple.fr" required>
+                </div>
+
+                <button type="submit" id="btn-forgot" class="btn-cta" style="width: 100%; height: 44px; margin-top: 8px;">
+                    Envoyer le lien de réinitialisation
+                </button>
+
+                <div style="text-align: center; margin-top: 12px;">
+                    <button type="button" class="link-muted" onclick="switchTab('login')">← Retour à la connexion</button>
+                </div>
+            </form>
+
+            <div style="font-size: 11px; color: var(--color-text-muted, #9CA3AF); margin-top: 24px; text-align: center;">
+                🔒 Données protégées conformément au RGAA & hachage <strong>bcrypt</strong>
             </div>
         </div>
     </main>
 
-    <!-- Pied de page -->
     <footer class="site-footer" style="padding: 24px 0;">
         <div class="container-1296" style="text-align: center; font-size: 12px; color: #9CA3AF;">
-            &copy; 2026 Vite & Gourmand — Espace réservé aux administrateurs.
+            &copy; 2026 Vite & Gourmand — Traiteur Bordeaux.
         </div>
     </footer>
 
