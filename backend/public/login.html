@@ -220,13 +220,32 @@
                     </div>
                 </div>
 
-                <div class="auth-form-group">
-                    <label for="reg-password">Mot de passe sécurisé</label>
-                    <input type="password" id="reg-password" class="auth-input" placeholder="••••••••••••" required autocomplete="new-password">
-                    <p class="password-hint">
-                        Min. 10 caractères avec au moins 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.
-                    </p>
-                </div>
+               <div class="auth-form-group">
+    <label for="reg-password">Mot de passe sécurisé</label>
+    <div style="position: relative; display: flex; align-items: center;">
+        <input 
+            type="password" 
+            id="reg-password" 
+            class="auth-input" 
+            placeholder="••••••••••••" 
+            required 
+            autocomplete="new-password"
+            style="padding-right: 44px;"
+        >
+        <button 
+            type="button" 
+            id="toggle-reg-password" 
+            aria-label="Afficher le mot de passe en clair"
+            title="Afficher/Masquer le mot de passe"
+            style="position: absolute; right: 8px; background: none; border: none; cursor: pointer; padding: 6px; font-size: 16px; line-height: 1; color: var(--color-text-muted, #6B7280);"
+        >
+            👁️
+        </button>
+    </div>
+    <p class="password-hint">
+        Min. 10 caractères avec au moins 1 majuscule, 1 minuscule, 1 chiffre et 1 caractère spécial.
+    </p>
+</div>
 
                 <button type="submit" id="btn-register" class="btn-cta" style="width: 100%; height: 44px; margin-top: 10px;">
                     Valider mon inscription

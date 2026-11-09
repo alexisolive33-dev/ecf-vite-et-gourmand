@@ -4,9 +4,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const formForgot = document.getElementById('form-forgot');
     const alertBox = document.getElementById('auth-alert');
 
-    // Récupération d'une éventuelle redirection demandée dans l'URL (ex: ?redirect=/commande.html?id=2)
+    // Récupération des paramètres d'URL (?redirect=... et ?tab=register)
     const urlParams = new URLSearchParams(window.location.search);
     const redirectUrl = urlParams.get('redirect');
+    const tabParam = urlParams.get('tab');
 
     function showAlert(message, type = 'danger') {
         if (!alertBox) return;
@@ -20,7 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alertBox.style.display = 'none';
     }
 
-    // Fonction globale pour basculer entre les formulaires
+    // Bascule entre les formulaires
     window.switchTab = function(tab) {
         hideAlert();
         const tabLogin = document.getElementById('tab-login');
@@ -39,6 +40,27 @@ document.addEventListener('DOMContentLoaded', () => {
             tabReg.setAttribute('aria-selected', tab === 'register');
         }
     };
+
+    // Ouverture automatique de l'onglet inscription si demandé via l'URL
+    if (tabParam === 'register') {
+        switchTab('register');
+    }
+
+    // Affichage / Masquage du mot de passe à l'inscription
+    const toggleRegPwd = document.getElementById('toggle-reg-password');
+    const regPwdInput = document.getElementById('reg-password');
+
+    if (toggleRegPwd && regPwdInput) {
+        toggleRegPwd.addEventListener('click', () => {
+            const estMasque = regPwdInput.type === 'password';
+            regPwdInput.type = estMasque ? 'text' : 'password';
+            toggleRegPwd.textContent = estMasque ? '🙈' : '👁️';
+            toggleRegPwd.setAttribute(
+                'aria-label',
+                estMasque ? 'Masquer le mot de passe' : 'Afficher le mot de passe en clair'
+            );
+        });
+    }
 
     // 1. Authentification / Connexion
     if (formLogin) {
