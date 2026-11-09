@@ -1,1 +1,5 @@
 backend/vendor/
+
+.env
+*.env
+backend/.env
