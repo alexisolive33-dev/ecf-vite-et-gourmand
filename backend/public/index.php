@@ -53,6 +53,16 @@ if ($uri === '/api/auth/login' && $method === 'POST') {
     exit;
 }
 
+if ($uri === '/api/auth/register' && $method === 'POST') {
+    (new AuthController())->register();
+    exit;
+}
+
+if ($uri === '/api/auth/forgot-password' && $method === 'POST') {
+    (new AuthController())->forgotPassword();
+    exit;
+}
+
 // Back-Office Admin - Liste des commandes
 if ($uri === '/api/admin/commandes' && $method === 'GET') {
     (new CommandeController())->adminIndex();
