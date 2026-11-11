@@ -33,7 +33,8 @@
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        .config-input {
+        .config-input,
+        .config-select {
             width: 100%;
             padding: 8px 10px;
             border: 1px solid var(--color-border);
@@ -41,8 +42,13 @@
             font-family: inherit;
             font-size: 13px;
             background: #FAFAFA;
+            box-sizing: border-box;
         }
-        .config-input:focus {
+        .config-select {
+            cursor: pointer;
+        }
+        .config-input:focus,
+        .config-select:focus {
             outline: none;
             border-color: var(--color-primary);
             background: #FFFFFF;
@@ -74,7 +80,7 @@
         </div>
     </header>
 
-    <main class="container-1296">
+    <main class="container-1296 page-section">
         
         <!-- Fil d'Ariane -->
         <nav class="breadcrumb" aria-label="Fil d'Ariane">
@@ -92,21 +98,21 @@
                 <!-- Visuel Header avec Badges -->
                 <div class="order-menu-header-img" id="menu-header-box">
                     <span class="pill-regime" id="badge-regime">Classique</span>
-                    <span class="pill-stock" id="badge-stock">Il reste 5 commandes disponibles</span>
+                    <span class="pill-stock" id="badge-stock">Chargement du stock...</span>
                     <div style="position: absolute; top: 44px; left: 12px; background: #8C5325; color: #FFF; font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 4px;" id="badge-theme-top">
-                        THÈME : NOËL
+                        THÈME : GOURMAND
                     </div>
-                    <span id="photo-label">[Photo HD : Menu Festif du Réveillon]</span>
+                    <span id="photo-label">[Photo HD : Formule Traiteur]</span>
                 </div>
 
                 <!-- Titre & Description -->
                 <div>
-                    <h1 id="menu-titre" style="font-size: 28px; margin-bottom: 4px;">Menu Festif du Réveillon</h1>
+                    <h1 id="menu-titre" style="font-size: 28px; margin-bottom: 4px;">Formule Traiteur</h1>
                     <p class="surtitre-or" style="color: var(--color-secondary); font-size: 13px; margin-bottom: 12px;">
                         Élaboré artisanalement par Julie & José • Produits frais de Gironde
                     </p>
                     <p id="menu-description" style="font-size: 14px; line-height: 1.6; color: var(--color-text-body);">
-                        Une partition gastronomique pensée pour célébrer la fin d'année. Chaque met est préparé le matin même dans notre atelier bordelais pour vous garantir une fraîcheur et des saveurs incomparables.
+                        Une partition gastronomique pensée pour célébrer vos réceptions. Chaque met est préparé le matin même dans notre atelier bordelais pour vous garantir une fraîcheur et des saveurs incomparables.
                     </p>
                 </div>
 
@@ -124,8 +130,8 @@
                 <div class="warning-box-inco">
                     <strong>⚠️ Conditions importantes de réservation & conservation</strong>
                     <ul style="list-style: none; margin-top: 6px;">
-                        <li>• <strong>Délai de réservation :</strong> Ce menu festif nécessite une commande ferme au minimum 7 jours ouvrés avant la date de livraison.</li>
-                        <li>• <strong>Précautions de stockage :</strong> Produits frais à conserver impérativement entre 0°C et +4°C dès réception. À consommer dans les 24 heures.</li>
+                        <li><strong>Délai de réservation :</strong> Ce menu nécessite une commande ferme au minimum 7 jours ouvrés avant la date de livraison.</li>
+                        <li><strong>Précautions de stockage :</strong> Produits frais à conserver impérativement entre 0°C et +4°C dès réception. À consommer dans les 24 heures.</li>
                     </ul>
                 </div>
 
@@ -134,8 +140,8 @@
             <!-- Colonne Droite : Configurateur Sticky de Devis -->
             <aside class="configurator-sticky">
                 <h3>Configurer votre commande</h3>
-                <div class="configurator-price-header" id="config-prix-unit">48,00 € / personne</div>
-                <div class="configurator-min-notice" id="config-min-convives">Minimum 6 convives</div>
+                <div class="configurator-price-header" id="config-prix-unit">-- € / personne</div>
+                <div class="configurator-min-notice" id="config-min-convives">Minimum -- convives</div>
 
                 <!-- Compteur de Convives interactif -->
                 <div style="text-align: center; margin-bottom: 16px;">
@@ -149,56 +155,65 @@
 
                 <!-- Bannière Remise Groupe -10% -->
                 <div class="discount-applied-banner" id="banner-remise" style="display: none;">
-                    🎉 Remise de groupe de 10% appliquée ! (<span id="remise-par-personne">-4,80 €</span> / pers.)
+                    🎉 Remise de groupe de 10% appliquée ! (<span id="remise-par-personne">-0,00 €</span> / pers.)
                 </div>
 
-                <!-- Champs de Configuration -->
+                <!-- Adresse postale -->
                 <div class="config-field-group">
                     <label for="cfg-adresse">Adresse de livraison</label>
-                    <input type="text" id="cfg-adresse" class="config-input" value="15 Avenue de l'Abreuvoir, 33700 Mérignac">
+                    <input type="text" id="cfg-adresse" class="config-input" placeholder="Ex: 14 Avenue du Château">
                 </div>
 
+                <!-- Code Postal & Sélection dynamique de Ville -->
                 <div class="config-row-2">
                     <div class="config-field-group">
-                        <label for="cfg-ville">Ville</label>
-                        <input type="text" id="cfg-ville" class="config-input" value="Mérignac">
+                        <label for="cfg-cp">Code Postal</label>
+                        <input type="text" id="cfg-cp" class="config-input" placeholder="Ex: 33000" maxlength="5">
                     </div>
                     <div class="config-field-group">
-                        <label for="cfg-distance">Distance (km)</label>
-                        <input type="number" id="cfg-distance" class="config-input" value="15" min="0" step="0.5">
+                        <label for="cfg-ville">Ville</label>
+                        <select id="cfg-ville-select" class="config-select" style="display: none;"></select>
+                        <input type="text" id="cfg-ville" class="config-input" placeholder="Tapez votre ville">
                     </div>
                 </div>
 
-                <div class="config-field-group">
-                    <label for="cfg-date">Date de réception (min. 7 jours)</label>
-                    <input type="datetime-local" id="cfg-date" class="config-input">
+                <!-- Distance calculée & Date de réception -->
+                <div class="config-row-2">
+                    <div class="config-field-group">
+                        <label for="cfg-distance">Distance (km)</label>
+                        <input type="number" id="cfg-distance" class="config-input" placeholder="0" readonly style="background-color: #F3F4F6; cursor: not-allowed;">
+                    </div>
+                    <div class="config-field-group">
+                        <label for="cfg-date">Date de réception (min. 7 jours)</label>
+                        <input type="datetime-local" id="cfg-date" class="config-input" required>
+                    </div>
                 </div>
 
                 <!-- Lignes de Décompte Devis -->
                 <div class="summary-rows">
                     <div class="summary-row" id="row-livraison-desc" style="color: var(--color-text-muted); font-size: 11px;">
-                        Livraison hors Bordeaux métropole (15 km) :
+                        Livraison Bordeaux métropole :
                     </div>
                     <div class="summary-row" style="font-size: 11px; margin-bottom: 10px;">
-                        <span id="calcul-livraison-detail">Forfait 5,00 € + (15 km × 0,59 €)</span>
-                        <strong id="val-frais-livraison">13,85 €</strong>
+                        <span id="calcul-livraison-detail">Livraison offerte intra-muros</span>
+                        <strong id="val-frais-livraison">0,00 €</strong>
                     </div>
 
                     <div class="summary-row">
                         <span>Sous-total repas :</span>
-                        <strong id="val-sous-total-repas">518,40 €</strong>
+                        <strong id="val-sous-total-repas">0,00 €</strong>
                     </div>
 
                     <div class="summary-row">
                         <span>Frais de livraison :</span>
-                        <strong id="val-frais-livraison-total">13,85 €</strong>
+                        <strong id="val-frais-livraison-total">0,00 €</strong>
                     </div>
                 </div>
 
                 <!-- Total TTC -->
                 <div class="total-command-block">
                     <div class="total-command-title">Total de la commande TTC :</div>
-                    <div class="total-command-price" id="val-total-ttc">532,25 €</div>
+                    <div class="total-command-price" id="val-total-ttc">0,00 €</div>
                 </div>
 
                 <!-- Bouton de validation final -->
@@ -233,11 +248,11 @@
                 <div class="footer-col">
                     <h4>Liens Utiles</h4>
                     <ul class="footer-links">
-    <li><a href="/menus.html">Nos Menus Événementiels</a></li>
-    <li><a href="/contact.html">Demande de Devis & Contact</a></li>
-    <li><a href="/mentions-legales.html">Mentions Légales</a></li>
-    <li><a href="/cgv.html">Conditions Générales de Vente (CGV)</a></li>
-</ul>
+                        <li><a href="/menus.html">Nos Menus Événementiels</a></li>
+                        <li><a href="/contact.html">Demande de Devis & Contact</a></li>
+                        <li><a href="/mentions-legales.html">Mentions Légales</a></li>
+                        <li><a href="/cgv.html">Conditions Générales de Vente (CGV)</a></li>
+                    </ul>
                 </div>
             </div>
             <div class="footer-bottom-bar">
@@ -246,7 +261,9 @@
         </div>
     </footer>
 
-    <!-- Script de configuration interactive -->
+    <!-- Synchronisation dynamique de la navbar & burger mobile -->
+    <script src="/js/navbar.js"></script>
+    <!-- Script de configuration interactive & calcul automatique -->
     <script src="/js/commande.js"></script>
 </body>
 </html>
