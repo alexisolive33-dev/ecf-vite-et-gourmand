@@ -91,19 +91,31 @@ document.addEventListener('DOMContentLoaded', () => {
                     throw new Error(data.message || 'Identifiants invalides');
                 }
 
-                // Sauvegarde de la session et des coordonnées pour la commande
-                localStorage.setItem('auth_token', data.token);
-                localStorage.setItem('user_profile', JSON.stringify(data.utilisateur));
+                const userData = data.utilisateur || data.user;
+                const token = data.token || data.auth_token;
+
+                // 1. Sauvegarde sessionStorage attendue par admin.js
+                sessionStorage.setItem('vg_user', JSON.stringify(userData));
+
+                // 2. Sauvegarde localStorage pour la navbar, le tunnel de commande et l'espace compte
+                localStorage.setItem('auth_token', token);
+                localStorage.setItem('token', token);
+                localStorage.setItem('user_profile', JSON.stringify(userData));
+                localStorage.setItem('user', JSON.stringify(userData));
 
                 showAlert('Connexion réussie, redirection...', 'success');
 
                 setTimeout(() => {
-                    if (redirectUrl) {
+                    const role = (userData.role || '').toLowerCase().trim();
+
+                    if (redirectUrl && !redirectUrl.includes('login')) {
                         window.location.href = decodeURIComponent(redirectUrl);
-                    } else if (data.utilisateur.role === 'admin' || data.utilisateur.role === 'employe') {
+                    } else if (role === 'admin' || role === 'employe') {
+                        // José ou employé -> redirection vers le Back-Office
                         window.location.href = '/admin.html';
                     } else {
-                        window.location.href = '/menus.html';
+                        // Client -> redirection vers son Espace Personnel
+                        window.location.href = '/compte.html';
                     }
                 }, 800);
             } catch (err) {
