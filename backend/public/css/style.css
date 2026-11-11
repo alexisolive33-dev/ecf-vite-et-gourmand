@@ -894,8 +894,128 @@ h3 {
     color: #6B7280;
 }
 
-/* --- Responsive Mobile (390 px) --- */
+/* --- Bouton Hamburger Figma (Caché sur PC, visible sur Mobile) --- */
+.burger-btn {
+    display: none;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 32px;
+    height: 24px;
+    z-index: 1001;
+}
+
+.burger-btn span {
+    display: block;
+    width: 100%;
+    height: 3px;
+    background-color: var(--color-primary, #721B29);
+    border-radius: 2px;
+    transition: var(--transition-smooth);
+}
+
+/* Animation en croix lors de l'ouverture */
+.burger-btn.active span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+.burger-btn.active span:nth-child(2) {
+    opacity: 0;
+}
+.burger-btn.active span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+/* --- Adaptations Mobile (< 900 px - Conforme Maquette Figma) --- */
 @media (max-width: 900px) {
+    /* Barre de navigation mobile */
+    .header-nav .navbar-container {
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+        padding: 12px 20px !important;
+        position: relative;
+    }
+
+    .brand-name {
+        font-size: 20px;
+    }
+
+    .brand-tagline {
+        font-size: 10px;
+    }
+
+    /* Affichage du bouton hamburger */
+    .burger-btn {
+        display: flex !important;
+    }
+
+    /* Tiroir de navigation mobile */
+    .header-nav nav {
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        width: 100%;
+        background-color: #FFFFFF;
+        border-bottom: 3px solid var(--color-primary, #721B29);
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        padding: 20px 24px;
+        box-sizing: border-box;
+    }
+
+    .header-nav nav.open {
+        display: block !important;
+    }
+
+    .nav-menu {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        width: 100%;
+    }
+
+    .nav-link {
+        font-size: 15px;
+        font-weight: 600;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--color-border, #E5E7EB);
+        display: block;
+        width: 100%;
+    }
+
+    .nav-link.active::after {
+        display: none;
+    }
+
+    /* Masquer les boutons de connexion / profil de la barre supérieure */
+    .header-nav .btn-connexion,
+    .header-nav .navbar-container > div:last-child {
+        display: none !important;
+    }
+
+    /* Espace de connexion / profil inséré dans le tiroir mobile */
+    .mobile-auth-slot {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px dashed var(--color-border, #E5E7EB);
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .mobile-auth-slot a,
+    .mobile-auth-slot button {
+        width: 100%;
+        text-align: center;
+        justify-content: center;
+        display: flex;
+        box-sizing: border-box;
+    }
+
+    /* Blocs de contenu responsive existants */
     .hero-layout, 
     .catalog-layout, 
     .order-layout, 
