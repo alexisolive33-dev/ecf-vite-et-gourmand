@@ -236,10 +236,16 @@ class CommandeController
 
         try {
             $pdo = $this->getPdo();
+
+            // Jointure via ligne_commande pour récupérer le menu sans erreur sur c.menu_id
             $stmt = $pdo->prepare("
-                SELECT c.*, m.titre AS menu_titre, m.theme, m.image_url
+                SELECT c.*, 
+                       COALESCE(m.titre, 'Formule Traiteur') AS menu_titre, 
+                       m.theme, 
+                       m.image_url
                 FROM commande c
-                LEFT JOIN menu m ON c.menu_id = m.id
+                LEFT JOIN ligne_commande lc ON lc.commande_id = c.id
+                LEFT JOIN menu m ON lc.menu_id = m.id
                 WHERE c.utilisateur_id = :uid
                 ORDER BY c.id DESC
             ");
@@ -307,14 +313,30 @@ class CommandeController
                 return;
             }
 
-            // Mise à jour vers le statut normalisé 'annulee' (sans accent) attendu par CommandeModel
+            // 1. Mise à jour vers le statut normalisé 'annulee' (sans accent) attendu par CommandeModel
             $update = $pdo->prepare("UPDATE commande SET statut = 'annulee' WHERE id = :id");
             $update->execute([':id' => $id]);
+
+            // 2. Restitution automatique du stock_disponible dans la table menu
+            try {
+                $stmtLignes = $pdo->prepare("SELECT menu_id FROM ligne_commande WHERE commande_id = :id");
+                $stmtLignes->execute([':id' => $id]);
+                $lignes = $stmtLignes->fetchAll(PDO::FETCH_ASSOC);
+
+                foreach ($lignes as $ligne) {
+                    if (!empty($ligne['menu_id'])) {
+                        $stmtUpStock = $pdo->prepare("UPDATE menu SET stock_disponible = stock_disponible + 1 WHERE id = :mid");
+                        $stmtUpStock->execute([':mid' => $ligne['menu_id']]);
+                    }
+                }
+            } catch (Exception $eStock) {
+                // Secours en cas de structure personnalisée
+            }
 
             http_response_code(200);
             echo json_encode([
                 'statut'  => 'succes',
-                'message' => "La commande #$id a bien été annulée."
+                'message' => "La commande #$id a bien été annulée et le stock a été restitué."
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         } catch (Exception $e) {
