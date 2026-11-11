@@ -4,10 +4,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const userProfileRaw = localStorage.getItem('user_profile');
     const user = userProfileRaw ? JSON.parse(userProfileRaw) : null;
 
-    // Mise à jour immédiate de la navbar
     majNavbar(user);
 
-    // Redirection stricte si visiteur non authentifié
     if (!authToken || !user) {
         window.location.href = `/login.html?tab=register&redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
         return;
@@ -83,12 +81,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (nbConvives < parseInt(currentMenu.convives_min)) {
                     nbConvives = parseInt(currentMenu.convives_min);
                 }
-                recalculerDevis();
-
-                // Calcul automatique de la distance au chargement si l'adresse/ville est présente
-                if (inputVille && inputVille.value.trim()) {
-                    calculerDistanceAutomatique();
-                }
+                
+                // Calcul initial automatique de la distance selon la ville enregistrée
+                calculerDistanceAutomatique();
             }
         })
         .catch(err => console.error('Erreur chargement menu:', err));
@@ -140,7 +135,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // 4. Compteur convives & écouteurs
+    // 4. Compteurs convives
     if (btnMinus) {
         btnMinus.addEventListener('click', () => {
             if (!currentMenu) return;
@@ -158,7 +153,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Déclenchement du géocodage automatique sur changement d'adresse ou de ville
+    // Écouteurs pour le calcul automatique de la distance
     if (inputVille) {
         inputVille.addEventListener('change', calculerDistanceAutomatique);
         inputVille.addEventListener('blur', calculerDistanceAutomatique);
@@ -168,57 +163,69 @@ document.addEventListener('DOMContentLoaded', () => {
         inputAdresse.addEventListener('blur', calculerDistanceAutomatique);
     }
 
-    // Modification manuelle de la distance ou de la date
     if (inputDistance) inputDistance.addEventListener('input', recalculerDevis);
     if (inputDate) inputDate.addEventListener('change', recalculerDevis);
 
-    // Coordonnées GPS de Julie & José (12 Cours de l'Intendance, Bordeaux)
+    // Atelier Julie & José (12 Cours de l'Intendance, Bordeaux)
     const ATELIER_GPS = { lat: 44.8427, lon: -0.5755 };
 
     async function calculerDistanceAutomatique() {
+        const ville = inputVille ? inputVille.value.trim() : '';
         const adresse = inputAdresse ? inputAdresse.value.trim() : '';
-        const ville = inputVille ? inputVille.value.trim() : 'Bordeaux';
 
-        if (!ville) return;
+        if (!ville) {
+            recalculerDevis();
+            return;
+        }
 
-        // Règle métier : Bordeaux intra-muros = 0 km (Livraison offerte)
-        if (ville.toLowerCase() === 'bordeaux') {
+        // Règle 1 : Bordeaux intra-muros = 0 km (offert)
+        if (ville.toLowerCase().includes('bordeaux')) {
             if (inputDistance) inputDistance.value = 0;
             recalculerDevis();
             return;
         }
 
         try {
-            // 1. Géocodage de l'adresse du client via l'API Adresse officielle (BAN)
-            const query = encodeURIComponent(`${adresse} ${ville}`.trim());
-            const resBan = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${query}&limit=1`);
-            const dataBan = await resBan.json();
+            // Requête 1 : Recherche complète (adresse + ville)
+            let res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(adresse + ' ' + ville)}&limit=1`);
+            let data = await res.json();
 
-            if (!dataBan.features || dataBan.features.length === 0) {
-                return;
+            // Requête 2 : Repli sur le nom de la ville si l'adresse exacte est introuvable
+            if (!data.features || data.features.length === 0) {
+                res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(ville)}&type=municipality&limit=1`);
+                data = await res.json();
             }
 
-            const [clientLon, clientLat] = dataBan.features[0].geometry.coordinates;
+            if (data.features && data.features.length > 0) {
+                const [clientLon, clientLat] = data.features[0].geometry.coordinates;
 
-            // 2. Calcul de la distance routière réelle en voiture via OSRM
-            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${ATELIER_GPS.lon},${ATELIER_GPS.lat};${clientLon},${clientLat}?overview=false`;
-            const resRoute = await fetch(osrmUrl);
-            const dataRoute = await resRoute.json();
+                // Formule de Haversine (distance orthodromique)
+                const R = 6371;
+                const dLat = (clientLat - ATELIER_GPS.lat) * (Math.PI / 180);
+                const dLon = (clientLon - ATELIER_GPS.lon) * (Math.PI / 180);
+                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                          Math.cos(ATELIER_GPS.lat * (Math.PI / 180)) * Math.cos(clientLat * (Math.PI / 180)) *
+                          Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                const distanceOiseau = R * c;
 
-            if (dataRoute.routes && dataRoute.routes.length > 0) {
-                const distanceKm = Math.round(dataRoute.routes[0].distance / 1000);
+                // Coefficient de détour routier standard en France (1.28)
+                const distanceRoutiereKm = Math.max(1, Math.round(distanceOiseau * 1.28));
 
                 if (inputDistance) {
-                    inputDistance.value = distanceKm;
+                    inputDistance.value = distanceRoutiereKm;
                     inputDistance.style.backgroundColor = '#ECFDF5';
                     setTimeout(() => { inputDistance.style.backgroundColor = ''; }, 1200);
                 }
 
                 recalculerDevis();
+                return;
             }
-        } catch (err) {
-            console.warn('Géocodage automatique indisponible, saisie manuelle conservée :', err);
+        } catch (e) {
+            console.warn("Calcul automatique indisponible :", e);
         }
+
+        recalculerDevis();
     }
 
     // 5. Calcul Devis en direct
@@ -252,10 +259,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sim = res.simulation;
                 currentSimulation = sim;
 
+                // Nettoyage de l'affichage de la remise (sans doublon "/ pers.")
                 if (sim.remise_appliquee && bannerRemise) {
                     bannerRemise.style.display = 'flex';
                     const remiseUnit = sim.prix_unitaire_ttc * 0.10;
-                    if (remiseParPersonne) remiseParPersonne.textContent = `-${remiseUnit.toFixed(2).replace('.', ',')} € / pers.`;
+                    if (remiseParPersonne) {
+                        remiseParPersonne.textContent = `-${remiseUnit.toFixed(2).replace('.', ',')} €`;
+                    }
                 } else if (bannerRemise) {
                     bannerRemise.style.display = 'none';
                 }
@@ -278,7 +288,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(err => console.error('Erreur calcul simulation:', err));
     }
 
-    // 6. Validation de commande reliée au compte connecté
+    // 6. Validation de commande
     if (btnValider) {
         btnValider.addEventListener('click', () => {
             if (!currentSimulation) return;
@@ -322,7 +332,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Mise à jour propre de la navbar
     function majNavbar(userData) {
         const navRightBtn = document.querySelector('.btn-connexion') || 
                             document.querySelector('.header-nav a[href*="login"]') || 
@@ -362,7 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Modal de confirmation stylisée
     function afficherModalConfirmation(commande, userData) {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.65); display:flex; align-items:center; justify-content:center; z-index:9999;';
