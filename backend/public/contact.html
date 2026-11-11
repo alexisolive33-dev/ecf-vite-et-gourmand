@@ -275,10 +275,13 @@
         </div>
     </footer>
 
-    <!-- Logique Navbar, Auto-complétion et Contact -->
+    <!-- 1. Script Navbar global (gestion du profil, lien cliquable et déconnexion) -->
+    <script src="/js/navbar.js"></script>
+
+    <!-- 2. Auto-remplissage et soumission du formulaire de contact -->
     <script>
-        function synchroniserPageContact() {
-            const userProfileRaw = localStorage.getItem('user_profile');
+        document.addEventListener('DOMContentLoaded', () => {
+            const userProfileRaw = localStorage.getItem('user_profile') || localStorage.getItem('user');
             let user = null;
             try {
                 user = userProfileRaw ? JSON.parse(userProfileRaw) : null;
@@ -286,53 +289,16 @@
                 user = null;
             }
 
-            // 1. Mise à jour de la navbar
-            const navConnexionLink = document.querySelector('.btn-connexion') || 
-                                     document.querySelector('a[href*="login"]') || 
-                                     Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toLowerCase() === 'connexion');
-
-            if (navConnexionLink && user) {
-                const profileWrapper = document.createElement('div');
-                profileWrapper.style.cssText = 'display: inline-flex; align-items: center; gap: 10px;';
-                profileWrapper.innerHTML = `
-                    <span style="font-size: 13px; font-weight: 600; color: var(--color-primary, #721B29);">
-                        👤 ${user.prenom || 'Client'}
-                    </span>
-                    <button type="button" id="btn-logout" style="background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                        Déconnexion
-                    </button>
-                `;
-
-                navConnexionLink.replaceWith(profileWrapper);
-
-                const btnLogout = document.getElementById('btn-logout');
-                if (btnLogout) {
-                    btnLogout.addEventListener('click', () => {
-                        localStorage.removeItem('auth_token');
-                        localStorage.removeItem('user_profile');
-                        window.location.reload();
-                    });
-                }
-            }
-
-            // 2. Auto-remplissage du formulaire si l'utilisateur est connecté
             if (user) {
                 const inputNom = document.getElementById('contact-nom');
                 const inputEmail = document.getElementById('contact-email');
                 const inputTel = document.getElementById('contact-telephone');
 
-                if (inputNom && !inputNom.value) {
-                    inputNom.value = `${user.prenom || ''} ${user.nom || ''}`.trim();
-                }
-                if (inputEmail && !inputEmail.value && user.email) {
-                    inputEmail.value = user.email;
-                }
-                if (inputTel && !inputTel.value && user.telephone) {
-                    inputTel.value = user.telephone;
-                }
+                if (inputNom && !inputNom.value) inputNom.value = `${user.prenom || ''} ${user.nom || ''}`.trim();
+                if (inputEmail && !inputEmail.value && user.email) inputEmail.value = user.email;
+                if (inputTel && !inputTel.value && user.telephone) inputTel.value = user.telephone;
             }
 
-            // 3. Soumission du formulaire
             const contactForm = document.getElementById('contact-form');
             if (contactForm) {
                 contactForm.addEventListener('submit', (e) => {
@@ -342,20 +308,15 @@
                     btn.textContent = 'Envoi en cours...';
 
                     setTimeout(() => {
-                        document.getElementById('contact-alert-success').style.display = 'block';
+                        const alertBox = document.getElementById('contact-alert-success');
+                        if (alertBox) alertBox.style.display = 'block';
                         contactForm.reset();
                         btn.disabled = false;
                         btn.textContent = 'Envoyer ma demande →';
                     }, 600);
                 });
             }
-        }
-
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', synchroniserPageContact);
-        } else {
-            synchroniserPageContact();
-        }
+        });
     </script>
 </body>
 </html>
