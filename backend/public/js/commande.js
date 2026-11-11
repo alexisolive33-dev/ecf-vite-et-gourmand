@@ -19,6 +19,43 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentMenu = null;
     let nbConvives = 12;
     let currentSimulation = null;
+    let timerCalculDistance = null;
+
+    // Référentiel kilométrique direct depuis l'atelier (12 Cours de l'Intendance, Bordeaux)
+    const DISTANCES_PREDEFINIES = {
+        'bordeaux': 0,
+        'le bouscat': 4,
+        'talence': 5,
+        'begles': 6,
+        'cenon': 6,
+        'floirac': 6,
+        'lormont': 7,
+        'pessac': 7,
+        'bruges': 7,
+        'merignac': 8,
+        'eysines': 9,
+        'villenave d ornon': 9,
+        'villenave-d-ornon': 9,
+        'gradignan': 10,
+        'blanquefort': 12,
+        'saint medard en jalles': 15,
+        'saint-medard-en-jalles': 15,
+        'libourne': 36,
+        'saint emilion': 42,
+        'saint-emilion': 42,
+        'andernos les bains': 48,
+        'andernos-les-bains': 48,
+        'langon': 48,
+        'lacanau': 52,
+        'gujan mestras': 55,
+        'gujan-mestras': 55,
+        'lege cap ferret': 55,
+        'la teste de buch': 60,
+        'arcachon': 65,
+        'lanvaudan': 485
+    };
+
+    const ATELIER_GPS = { lat: 44.8427, lon: -0.5755 };
 
     // Éléments du DOM
     const breadcrumbCurrent = document.getElementById('breadcrumb-current');
@@ -55,7 +92,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const valTotalTtc = document.getElementById('val-total-ttc');
     const btnValider = document.getElementById('btn-valider-commande');
 
-    // 2. Auto-remplissage des champs avec les données du compte client
+    // 2. Auto-remplissage des champs
     if (inputNom && user.nom) inputNom.value = user.nom;
     if (inputPrenom && user.prenom) inputPrenom.value = user.prenom;
     if (inputEmail && user.email) inputEmail.value = user.email;
@@ -63,7 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inputAdresse && user.adresse_postale) inputAdresse.value = user.adresse_postale;
     if (inputVille && user.ville) inputVille.value = user.ville;
 
-    // Date minimale (J+7)
     const dateMin = new Date();
     dateMin.setDate(dateMin.getDate() + 7);
     if (inputDate) {
@@ -82,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     nbConvives = parseInt(currentMenu.convives_min);
                 }
                 
-                // Calcul initial automatique de la distance selon la ville enregistrée
+                // Détection initiale de la distance
                 calculerDistanceAutomatique();
             }
         })
@@ -153,8 +189,14 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Écouteurs pour le calcul automatique de la distance
+    // Déclenchement automatique dès la frappe dans le champ VILLE ou ADRESSE
+    function planifierCalculDistance() {
+        clearTimeout(timerCalculDistance);
+        timerCalculDistance = setTimeout(calculerDistanceAutomatique, 350);
+    }
+
     if (inputVille) {
+        inputVille.addEventListener('input', planifierCalculDistance);
         inputVille.addEventListener('change', calculerDistanceAutomatique);
         inputVille.addEventListener('blur', calculerDistanceAutomatique);
     }
@@ -166,65 +208,68 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inputDistance) inputDistance.addEventListener('input', recalculerDevis);
     if (inputDate) inputDate.addEventListener('change', recalculerDevis);
 
-    // Atelier Julie & José (12 Cours de l'Intendance, Bordeaux)
-    const ATELIER_GPS = { lat: 44.8427, lon: -0.5755 };
-
+    // Fonction de calcul kilométrique résiliente
     async function calculerDistanceAutomatique() {
-        const ville = inputVille ? inputVille.value.trim() : '';
-        const adresse = inputAdresse ? inputAdresse.value.trim() : '';
+        const rawVille = inputVille ? inputVille.value.trim() : '';
+        const rawAdresse = inputAdresse ? inputAdresse.value.trim() : '';
 
-        if (!ville) {
+        if (!rawVille) {
             recalculerDevis();
             return;
         }
 
-        // Règle 1 : Bordeaux intra-muros = 0 km (offert)
-        if (ville.toLowerCase().includes('bordeaux')) {
-            if (inputDistance) inputDistance.value = 0;
-            recalculerDevis();
+        // Nettoyage de la chaîne de recherche (minuscules, sans accents)
+        const villeNormalisee = rawVille.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+        // 1. Priorité absolue : Consultation immédiate du référentiel local (0ms, immunisé contre Brave)
+        if (DISTANCES_PREDEFINIES.hasOwnProperty(villeNormalisee)) {
+            appliquerDistance(DISTANCES_PREDEFINIES[villeNormalisee]);
             return;
         }
 
+        // 2. Vérification Bordeaux intra-muros
+        if (villeNormalisee.includes('bordeaux')) {
+            appliquerDistance(0);
+            return;
+        }
+
+        // 3. Secours réseau pour les autres villes
         try {
-            // Requête 1 : Recherche complète (adresse + ville)
-            let res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(adresse + ' ' + ville)}&limit=1`);
+            const query = encodeURIComponent(`${rawAdresse} ${rawVille}`.trim());
+            let res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${query}&limit=1`);
             let data = await res.json();
 
-            // Requête 2 : Repli sur le nom de la ville si l'adresse exacte est introuvable
             if (!data.features || data.features.length === 0) {
-                res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(ville)}&type=municipality&limit=1`);
+                res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(rawVille)}&limit=1`);
                 data = await res.json();
             }
 
             if (data.features && data.features.length > 0) {
-                const [clientLon, clientLat] = data.features[0].geometry.coordinates;
-
-                // Formule de Haversine (distance orthodromique)
-                const R = 6371;
-                const dLat = (clientLat - ATELIER_GPS.lat) * (Math.PI / 180);
-                const dLon = (clientLon - ATELIER_GPS.lon) * (Math.PI / 180);
+                const [lon, lat] = data.features[0].geometry.coordinates;
+                const dLat = (lat - ATELIER_GPS.lat) * (Math.PI / 180);
+                const dLon = (lon - ATELIER_GPS.lon) * (Math.PI / 180);
                 const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                          Math.cos(ATELIER_GPS.lat * (Math.PI / 180)) * Math.cos(clientLat * (Math.PI / 180)) *
+                          Math.cos(ATELIER_GPS.lat * (Math.PI / 180)) * Math.cos(lat * (Math.PI / 180)) *
                           Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                const distanceOiseau = R * c;
-
-                // Coefficient de détour routier standard en France (1.28)
-                const distanceRoutiereKm = Math.max(1, Math.round(distanceOiseau * 1.28));
-
-                if (inputDistance) {
-                    inputDistance.value = distanceRoutiereKm;
-                    inputDistance.style.backgroundColor = '#ECFDF5';
-                    setTimeout(() => { inputDistance.style.backgroundColor = ''; }, 1200);
-                }
-
-                recalculerDevis();
+                const distanceVolOiseau = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+                const kmEstime = Math.max(1, Math.round(distanceVolOiseau * 1.28));
+                
+                appliquerDistance(kmEstime);
                 return;
             }
         } catch (e) {
-            console.warn("Calcul automatique indisponible :", e);
+            console.warn("Calcul automatique par API non disponible :", e);
         }
 
+        recalculerDevis();
+    }
+
+    function appliquerDistance(km) {
+        if (inputDistance) {
+            inputDistance.value = km;
+            inputDistance.style.backgroundColor = '#DCFCE7';
+            setTimeout(() => { inputDistance.style.backgroundColor = ''; }, 1000);
+        }
         recalculerDevis();
     }
 
@@ -259,12 +304,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sim = res.simulation;
                 currentSimulation = sim;
 
-                // Nettoyage de l'affichage de la remise (sans doublon "/ pers.")
+                // Nettoyage de l'affichage de la remise
                 if (sim.remise_appliquee && bannerRemise) {
                     bannerRemise.style.display = 'flex';
                     const remiseUnit = sim.prix_unitaire_ttc * 0.10;
                     if (remiseParPersonne) {
-                        remiseParPersonne.textContent = `-${remiseUnit.toFixed(2).replace('.', ',')} €`;
+                        remiseParPersonne.textContent = `-${remiseUnit.toFixed(2).replace('.', ',')} € / pers.`;
                     }
                 } else if (bannerRemise) {
                     bannerRemise.style.display = 'none';
