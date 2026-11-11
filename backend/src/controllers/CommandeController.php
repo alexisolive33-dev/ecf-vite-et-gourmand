@@ -30,31 +30,26 @@ class CommandeController
         $dbClass = class_exists('\\App\\Config\\Database') ? '\\App\\Config\\Database' : (class_exists('\\Database') ? '\\Database' : null);
 
         if ($dbClass) {
-            // 1. Appel direct si getConnection() existe (statique ou d'instance)
             if (method_exists($dbClass, 'getConnection')) {
                 $refMethod = new \ReflectionMethod($dbClass, 'getConnection');
                 return $refMethod->isStatic() ? $dbClass::getConnection() : (new $dbClass())->getConnection();
             }
 
-            // 2. Appel si getInstance() existe
             if (method_exists($dbClass, 'getInstance')) {
                 $instance = $dbClass::getInstance();
                 return method_exists($instance, 'getConnection') ? $instance->getConnection() : $instance;
             }
 
-            // 3. Appel si getPdo() existe
             if (method_exists($dbClass, 'getPdo')) {
                 $refMethod = new \ReflectionMethod($dbClass, 'getPdo');
                 return $refMethod->isStatic() ? $dbClass::getPdo() : (new $dbClass())->getPdo();
             }
 
-            // 4. Propriété publique $pdo ou $db
             $instance = new $dbClass();
             if (isset($instance->pdo) && $instance->pdo instanceof PDO) return $instance->pdo;
             if (isset($instance->db) && $instance->db instanceof PDO) return $instance->db;
         }
 
-        // 5. Repli : extraction du PDO depuis le modèle CommandeModel déjà instancié
         if (isset($this->commandeModel)) {
             $ref = new \ReflectionClass($this->commandeModel);
             foreach (['pdo', 'db', 'connection', 'connexion'] as $prop) {
@@ -223,7 +218,6 @@ class CommandeController
 
     /**
      * Endpoint : GET /api/commandes/mes-commandes?utilisateur_id=X
-     * Récupère la liste des commandes de l'utilisateur connecté
      */
     public function mesCommandes(): void
     {
@@ -270,7 +264,6 @@ class CommandeController
 
     /**
      * Endpoint : PUT /api/commandes/{id}/annuler
-     * Annule une commande si elle n'a pas encore été acceptée par l'équipe
      */
     public function annulerCommande(int $id): void
     {
@@ -297,9 +290,15 @@ class CommandeController
                 return;
             }
 
-            // Statuts bloquants selon le sujet ECF (Page 7)
-            $statutsBloquants = ['accepté', 'accepte', 'en préparation', 'en cours de livraison', 'livré', 'livre', 'terminée', 'terminee'];
-            if (in_array(mb_strtolower(trim($cmd['statut'])), $statutsBloquants, true)) {
+            // Normalisation du statut actuel pour vérification
+            $statutActuel = mb_strtolower(trim($cmd['statut'] ?? ''));
+            $statutNettoye = str_replace(['_', ' '], '', $statutActuel);
+
+            // Annulable uniquement si la commande est encore en attente
+            $estEnAttente = in_array($statutActuel, ['en_attente', 'en attente', 'creee', 'cree'], true) 
+                         || strpos($statutNettoye, 'attente') !== false;
+
+            if (!$estEnAttente) {
                 http_response_code(422);
                 echo json_encode([
                     'statut'  => 'erreur',
@@ -308,7 +307,8 @@ class CommandeController
                 return;
             }
 
-            $update = $pdo->prepare("UPDATE commande SET statut = 'annulée' WHERE id = :id");
+            // Mise à jour vers le statut normalisé 'annulee' (sans accent) attendu par CommandeModel
+            $update = $pdo->prepare("UPDATE commande SET statut = 'annulee' WHERE id = :id");
             $update->execute([':id' => $id]);
 
             http_response_code(200);
@@ -325,7 +325,6 @@ class CommandeController
 
     /**
      * Endpoint : PUT /api/utilisateurs/me
-     * Permet au client de mettre à jour ses coordonnées personnelles
      */
     public function updateProfil(): void
     {
@@ -349,7 +348,6 @@ class CommandeController
         try {
             $pdo = $this->getPdo();
 
-            // Tolérance automatique du nom de clé primaire (id ou utilisateur_id)
             $colId = 'id';
             try {
                 $check = $pdo->query("SHOW COLUMNS FROM utilisateur LIKE 'utilisateur_id'");
@@ -388,7 +386,6 @@ class CommandeController
             $stmt = $pdo->prepare($sql);
             $stmt->execute($params);
 
-            // Récupérer le profil actualisé
             $stmtUser = $pdo->prepare("SELECT * FROM utilisateur WHERE {$colId} = :id");
             $stmtUser->execute([':id' => $id]);
             $userUpdated = $stmtUser->fetch(PDO::FETCH_ASSOC);

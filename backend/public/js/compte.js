@@ -1,7 +1,7 @@
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Contrôle d'accès et authentification
-    const authToken = localStorage.getItem('auth_token');
-    const userProfileRaw = localStorage.getItem('user_profile');
+    const authToken = localStorage.getItem('auth_token') || localStorage.getItem('token');
+    const userProfileRaw = localStorage.getItem('user_profile') || localStorage.getItem('user');
     let user = null;
 
     try {
@@ -15,11 +15,14 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    // Récupération sécurisée de l'ID utilisateur (tolérance id ou utilisateur_id)
+    const currentUserId = user.id || user.utilisateur_id;
+
     // Mise à jour de la navbar et du message de bienvenue
     majNavbar(user);
     const welcomeTitle = document.getElementById('user-welcome-title');
     if (welcomeTitle) {
-        welcomeTitle.textContent = `Bienvenue, ${user.prenom} ${user.nom}`;
+        welcomeTitle.textContent = `Bienvenue, ${user.prenom || ''} ${user.nom || ''}`;
     }
 
     // 2. Gestion des onglets
@@ -40,8 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // 3. Initialisation des formulaires et des données
-    initialiserProfilForm(user);
-    chargerMesCommandes(user.id);
+    initialiserProfilForm(user, currentUserId);
+    chargerMesCommandes(currentUserId);
     initialiserGestionAvis();
 
     // ==========================================
@@ -57,7 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Authorization': `Bearer ${authToken}`
             }
         })
-        .then(res => res.json())
+        .then(async res => {
+            const data = await res.json();
+            if (!res.ok) {
+                throw new Error(data.message || `Erreur HTTP ${res.status}`);
+            }
+            return data;
+        })
         .then(res => {
             if (loadingEl) loadingEl.style.display = 'none';
 
@@ -72,7 +81,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(err => {
             console.error('Erreur API commandes:', err);
             if (loadingEl) {
-                loadingEl.innerHTML = '<p style="color: var(--color-primary);">Impossible de charger vos commandes pour le moment.</p>';
+                loadingEl.innerHTML = `<p style="color: var(--color-primary);">Impossible de charger vos commandes : ${err.message}</p>`;
             }
         });
     }
@@ -85,25 +94,33 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('article');
             card.className = 'order-card';
 
-            const statutNormalise = (cmd.statut || 'en attente').toLowerCase().trim();
+            const rawStatut = (cmd.statut || 'en_attente').toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
             const dateCreation = cmd.date_creation ? new Date(cmd.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Récemment';
             const datePrestation = cmd.date_livraison ? new Date(cmd.date_livraison.replace(' ', 'T')).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Non précisée';
 
-            // Classe CSS du badge de statut
+            // Classe CSS et libellé du badge
             let badgeClass = 'status-en-attente';
-            if (statutNormalise.includes('accept')) badgeClass = 'status-accepte';
-            else if (statutNormalise.includes('prep')) badgeClass = 'status-en-preparation';
-            else if (statutNormalise.includes('livr') && !statutNormalise.includes('cours')) badgeClass = 'status-livre';
-            else if (statutNormalise.includes('cours')) badgeClass = 'status-en-cours-de-livraison';
-            else if (statutNormalise.includes('term')) badgeClass = 'status-terminee';
-            else if (statutNormalise.includes('annul')) badgeClass = 'status-annulee';
+            let libelleStatut = 'En attente';
 
-            // Possibilité d'annulation : tant que la commande n'a pas été acceptée
-            const peutAnnuler = (statutNormalise === 'en attente' || statutNormalise === 'en attente de validation' || statutNormalise === 'creee');
-            const estTerminee = (statutNormalise === 'terminée' || statutNormalise === 'terminee' || statutNormalise === 'livré' || statutNormalise === 'livree');
+            if (rawStatut.includes('valid') || rawStatut.includes('accept')) {
+                badgeClass = 'status-accepte';
+                libelleStatut = 'Validée';
+            } else if (rawStatut.includes('prep')) {
+                badgeClass = 'status-en-preparation';
+                libelleStatut = 'En préparation';
+            } else if (rawStatut.includes('livr')) {
+                badgeClass = 'status-livre';
+                libelleStatut = 'Livrée';
+            } else if (rawStatut.includes('annul')) {
+                badgeClass = 'status-annulee';
+                libelleStatut = 'Annulée';
+            }
 
-            // Construction de la frise chronologique de suivi (timeline)
-            const timelineHtml = genererTimeline(statutNormalise);
+            // Possibilité d'annulation : tant que la commande est "en_attente"
+            const peutAnnuler = rawStatut.includes('attente') || rawStatut === 'creee' || rawStatut === 'cree';
+            const estTerminee = rawStatut.includes('livr') || rawStatut.includes('term');
+
+            const timelineHtml = genererTimeline(rawStatut);
 
             card.innerHTML = `
                 <div class="order-card-header">
@@ -112,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="order-date">Enregistrée le ${dateCreation}</div>
                     </div>
                     <div>
-                        <span class="status-badge ${badgeClass}">${cmd.statut || 'En attente'}</span>
+                        <span class="status-badge ${badgeClass}">${libelleStatut}</span>
                     </div>
                 </div>
 
@@ -176,7 +193,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Générateur de la frise chronologique selon le statut réel
     function genererTimeline(statut) {
         if (statut.includes('annul')) {
             return `
@@ -188,17 +204,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const etapes = [
             { key: 'attente', label: '1. Enregistrée' },
-            { key: 'accepte', label: '2. Validée Julie & José' },
+            { key: 'validee', label: '2. Validée Julie & José' },
             { key: 'preparation', label: '3. En cuisine' },
-            { key: 'livraison', label: '4. En livraison' },
-            { key: 'terminee', label: '5. Livrée' }
+            { key: 'livree', label: '4. Livrée' }
         ];
 
         let indexAtteint = 0;
-        if (statut.includes('accept')) indexAtteint = 1;
+        if (statut.includes('valid') || statut.includes('accept')) indexAtteint = 1;
         if (statut.includes('prep')) indexAtteint = 2;
-        if (statut.includes('cours')) indexAtteint = 3;
-        if (statut.includes('livr') || statut.includes('term')) indexAtteint = 4;
+        if (statut.includes('livr') || statut.includes('term')) indexAtteint = 3;
 
         let stepsHtml = '';
         etapes.forEach((etape, i) => {
@@ -217,7 +231,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<div class="timeline-tracker">${stepsHtml}</div>`;
     }
 
-    // Annulation côté client via l'API
     function annulerCommande(commandeId) {
         fetch(`/api/commandes/${commandeId}/annuler`, {
             method: 'PUT',
@@ -225,13 +238,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${authToken}`
             },
-            body: JSON.stringify({ utilisateur_id: user.id })
+            body: JSON.stringify({ utilisateur_id: currentUserId })
         })
         .then(res => res.json())
         .then(res => {
             if (res.statut === 'succes') {
                 alert('Votre commande a été annulée avec succès.');
-                chargerMesCommandes(user.id);
+                chargerMesCommandes(currentUserId);
             } else {
                 alert('Erreur : ' + (res.message || 'Impossible d\'annuler cette commande.'));
             }
@@ -245,7 +258,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     // GESTION DU PROFIL PERSONNEL
     // ==========================================
-    function initialiserProfilForm(userData) {
+    function initialiserProfilForm(userData, userId) {
         const inputPrenom = document.getElementById('prof-prenom');
         const inputNom = document.getElementById('prof-nom');
         const inputEmail = document.getElementById('prof-email');
@@ -278,7 +291,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const payload = {
-                    id: userData.id,
+                    id: userId,
                     prenom: inputPrenom.value.trim(),
                     nom: inputNom.value.trim(),
                     telephone: inputTel.value.trim(),
@@ -312,7 +325,6 @@ document.addEventListener('DOMContentLoaded', () => {
                             alertSuccess.textContent = '✅ Vos informations ont été mises à jour avec succès.';
                             alertSuccess.style.display = 'block';
                         }
-                        // Mise à jour synchrone du profil stocké en mémoire
                         if (res.user) {
                             localStorage.setItem('user_profile', JSON.stringify(res.user));
                             majNavbar(res.user);
@@ -359,7 +371,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 e.preventDefault();
                 const cmdId = document.getElementById('avis-commande-id').value;
                 const note = document.getElementById('avis-note').value;
-                const commentaire = document.getElementById('avis-commentaire').value;
 
                 alert(`Merci pour votre retour ! Votre note de ${note}/5 étoiles a bien été transmise à Julie & José.`);
                 if (modal) modal.style.display = 'none';
@@ -379,7 +390,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // SYNCHRONISATION DE LA NAVBAR
     // ==========================================
     function majNavbar(userData) {
-        const navContainer = document.getElementById('nav-auth-container') || document.querySelector('.header-nav .navbar-container');
         const navConnexionLink = document.querySelector('.btn-connexion') || 
                                  Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toLowerCase() === 'connexion');
 
@@ -388,7 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
             profileWrapper.style.cssText = 'display: inline-flex; align-items: center; gap: 10px;';
             profileWrapper.innerHTML = `
                 <a href="/compte.html" style="text-decoration: none; font-size: 13px; font-weight: 600; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px;">
-                    👤 ${userData.prenom}
+                    👤 ${userData.prenom || ''}
                 </a>
                 <button type="button" id="btn-logout" style="background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
                     Déconnexion
@@ -402,6 +412,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnLogout.addEventListener('click', () => {
                     localStorage.removeItem('auth_token');
                     localStorage.removeItem('user_profile');
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    sessionStorage.clear();
                     window.location.href = '/';
                 });
             }

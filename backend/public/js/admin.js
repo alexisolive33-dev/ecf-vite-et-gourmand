@@ -56,7 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statsContainer = document.getElementById('stats-container');
     const tableBody = document.getElementById('orders-table-body');
 
-    // 2. Charger les statistiques MongoDB (Classes alignées sur le UI Kit)
+    // 2. Charger les statistiques MongoDB
     if (statsContainer) {
         fetch('/api/stats/popularite')
             .then(res => res.json())
@@ -105,25 +105,16 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
-    function matchStatut(statutActuel, statutCible) {
-        if (!statutActuel) return false;
-        const s = statutActuel.toLowerCase().replace(/_/g, ' ').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        const t = statutCible.toLowerCase().replace(/_/g, ' ').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-        return s === t || s.includes(t);
-    }
-
     function renderCommandes(commandes) {
         tableBody.innerHTML = '';
 
         commandes.forEach(cmd => {
             const tr = document.createElement('tr');
 
-            // Extraction robuste des informations client
             const prenom = cmd.client_prenom || cmd.prenom || 'Client';
             const nom = cmd.client_nom || cmd.nom || '';
             const email = cmd.client_email || cmd.email || '-';
 
-            // Numéro et dates
             const idCommande = cmd.id || cmd.commande_id;
             const numeroCommande = cmd.numero_commande || (`CMD-${idCommande}`);
             const dateLivraison = cmd.date_livraison_souhaitee || cmd.date_livraison || '-';
@@ -131,7 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const distance = cmd.distance_km || cmd.distance || 0;
             const totalTtc = parseFloat(cmd.total_ttc || 0).toFixed(2);
 
-            // Extraction de l'intitulé des menus / articles
             let articleStr = '-';
             if (cmd.articles && Array.isArray(cmd.articles) && cmd.articles.length > 0) {
                 articleStr = cmd.articles.map(a => `${a.menu_titre || a.titre} (${a.nb_convives || '-'} p.)`).join(', ');
@@ -139,7 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 articleStr = `${cmd.menu_titre || cmd.titre} (${cmd.nb_convives || '-'} p.)`;
             }
 
-            const statut = cmd.statut || 'en attente';
+            const rawStatut = (cmd.statut || 'en_attente').toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
             tr.innerHTML = `
                 <td><strong>${numeroCommande}</strong></td>
@@ -153,12 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td><strong>${totalTtc} €</strong></td>
                 <td>
                     <select class="status-select" data-id="${idCommande}" style="padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px;">
-                        <option value="en attente" ${matchStatut(statut, 'attente') ? 'selected' : ''}>En attente</option>
-                        <option value="accepté" ${matchStatut(statut, 'accept') || matchStatut(statut, 'valide') ? 'selected' : ''}>Accepté</option>
-                        <option value="en préparation" ${matchStatut(statut, 'prep') ? 'selected' : ''}>En préparation</option>
-                        <option value="en cours de livraison" ${matchStatut(statut, 'cours') ? 'selected' : ''}>En livraison</option>
-                        <option value="livré" ${matchStatut(statut, 'livr') || matchStatut(statut, 'term') ? 'selected' : ''}>Livrée</option>
-                        <option value="annulée" ${matchStatut(statut, 'annul') ? 'selected' : ''}>Annulée</option>
+                        <option value="en_attente" ${rawStatut.includes('attente') ? 'selected' : ''}>En attente</option>
+                        <option value="validee" ${rawStatut.includes('valid') || rawStatut.includes('accept') ? 'selected' : ''}>Validée</option>
+                        <option value="en_preparation" ${rawStatut.includes('prep') ? 'selected' : ''}>En préparation</option>
+                        <option value="livree" ${rawStatut.includes('livr') ? 'selected' : ''}>Livrée</option>
+                        <option value="annulee" ${rawStatut.includes('annul') ? 'selected' : ''}>Annulée</option>
                     </select>
                 </td>
             `;
@@ -185,7 +174,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await res.json();
 
                     if (res.ok && data.statut === 'succes') {
-                        // Feedback visuel temporaire
                         e.target.style.backgroundColor = '#DCFCE7';
                         setTimeout(() => { e.target.style.backgroundColor = ''; }, 1000);
                     } else {
