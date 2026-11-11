@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
+    const currentUserId = user.id || user.utilisateur_id;
+
     const urlParams = new URLSearchParams(window.location.search);
     const menuId = parseInt(urlParams.get('id')) || 1;
 
@@ -226,8 +228,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 distance_km: currentSimulation.distance_km,
                 date_livraison: currentSimulation.date_livraison,
                 ville: currentSimulation.ville_livraison,
-                adresse_livraison: inputAdresse ? (inputAdresse.value.trim() || user.adresse_postale || '15 Avenue de l\'Abreuvoir') : '15 Avenue de l\'Abreuvoir',
-                utilisateur_id: user.id
+                adresse_livraison: inputAdresse ? (inputAdresse.value.trim() || user.adresse_postale || '14 Avenue du Château') : '14 Avenue du Château',
+                utilisateur_id: currentUserId
             };
 
             fetch('/api/commandes', {
@@ -245,13 +247,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     alert('Erreur : ' + (res.message || 'Impossible de valider la commande'));
                     btnValider.disabled = false;
-                    btnValider.textContent = 'Enregistrement de votre devis...';
+                    btnValider.textContent = 'Valider et passer à la commande →';
                 }
             })
             .catch(err => {
                 alert('Erreur lors de la communication avec le serveur.');
                 btnValider.disabled = false;
-                btnValider.textContent = 'Enregistrement de votre devis...';
+                btnValider.textContent = 'Valider et passer à la commande →';
             });
         });
     }
@@ -263,12 +265,18 @@ document.addEventListener('DOMContentLoaded', () => {
                             Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toLowerCase() === 'connexion');
 
         if (navRightBtn && userData) {
+            const isAdmin = userData.role === 'admin' || userData.role === 'employe';
             const profileWrapper = document.createElement('div');
             profileWrapper.style.cssText = 'display: inline-flex; align-items: center; gap: 10px;';
             profileWrapper.innerHTML = `
-                <span style="font-size: 13px; font-weight: 600; color: var(--color-primary, #721B29);">
+                ${isAdmin ? `
+                    <a href="/admin.html" style="background: var(--color-primary, #721B29); color: #FFFFFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                        ⚙️ Admin
+                    </a>
+                ` : ''}
+                <a href="/compte.html" title="Accéder à mon espace client" style="text-decoration: none; font-size: 13px; font-weight: 600; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
                     👤 ${userData.prenom}
-                </span>
+                </a>
                 <button type="button" id="btn-logout" style="background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
                     Déconnexion
                 </button>
@@ -281,7 +289,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnLogout.addEventListener('click', () => {
                     localStorage.removeItem('auth_token');
                     localStorage.removeItem('user_profile');
-                    window.location.reload();
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    sessionStorage.clear();
+                    window.location.href = '/';
                 });
             }
         }
@@ -305,14 +316,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     👨‍🍳 Julie & José valideront votre prestation sous 24h.
                 </div>
                 <button id="modal-btn-ok" class="btn-cta" style="width:100%; height:42px; cursor:pointer;">
-                    Retourner au catalogue des menus
+                    Suivre ma commande dans mon espace client
                 </button>
             </div>
         `;
 
         document.body.appendChild(overlay);
         document.getElementById('modal-btn-ok').addEventListener('click', () => {
-            window.location.href = '/menus.html';
+            window.location.href = '/compte.html';
         });
     }
 });
