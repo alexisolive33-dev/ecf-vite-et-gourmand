@@ -1,8 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const authToken = localStorage.getItem('auth_token');
-    const userProfileRaw = localStorage.getItem('user_profile');
-    const user = userProfileRaw ? JSON.parse(userProfileRaw) : null;
-
     let allMenus = [];
     let currentRegime = '';
     let currentMinConvives = 4;
@@ -163,8 +159,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const estConnecte = !!(authToken && user);
-
         menus.forEach(menu => {
             const card = document.createElement('article');
             card.className = 'card-menu-catalog';
@@ -192,14 +186,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const delai = menu.delai_min_jours || 7;
             const stockage = menu.conditions_stockage || 'Conserver entre 0°C et +4°C';
 
-            const targetUrl = estConnecte 
-                ? `/commande.html?id=${menu.id}` 
-                : `/login.html?redirect=${encodeURIComponent('/commande.html?id=' + menu.id)}`;
+            // Lien direct vers la fiche descriptive et le configurateur
+            const targetUrl = `/commande.html?id=${menu.id}`;
 
             card.innerHTML = `
                 <div class="card-menu-image">
                     <span class="pill-regime">${regimeAffiche}</span>
-                    <span class="pill-stock">● Il reste ${menu.stock_disponible} commandes</span>
+                    <span class="pill-stock">Il reste ${menu.stock_disponible} commandes</span>
                     <img 
                         src="${imageUrl}" 
                         alt="Présentation du menu ${menu.titre}" 
@@ -223,11 +216,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         ${tagsHtml}
                     </div>
 
-                    <div class="card-menu-price">${parseFloat(menu.prix_unitaire_ttc).toFixed(2)} €</div>
+                    <div class="card-menu-price">${parseFloat(menu.prix_unitaire_ttc).toFixed(2).replace('.', ',')} €</div>
                     <div class="card-menu-min">/ personne (Min. ${menu.convives_min} pers.)</div>
 
                     <a href="${targetUrl}" class="btn-cta" style="height: 40px; font-size: 13px; width: 100%; text-align: center; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
-                        ${estConnecte ? 'Commander ce menu &rarr;' : 'Se connecter pour commander &rarr;'}
+                        Découvrir le menu & Devis &rarr;
                     </a>
                 </div>
             `;
