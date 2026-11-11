@@ -84,6 +84,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     nbConvives = parseInt(currentMenu.convives_min);
                 }
                 recalculerDevis();
+
+                // Calcul automatique de la distance au chargement si l'adresse/ville est présente
+                if (inputVille && inputVille.value.trim()) {
+                    calculerDistanceAutomatique();
+                }
             }
         })
         .catch(err => console.error('Erreur chargement menu:', err));
@@ -153,9 +158,68 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    if (inputVille) inputVille.addEventListener('input', recalculerDevis);
+    // Déclenchement du géocodage automatique sur changement d'adresse ou de ville
+    if (inputVille) {
+        inputVille.addEventListener('change', calculerDistanceAutomatique);
+        inputVille.addEventListener('blur', calculerDistanceAutomatique);
+    }
+    if (inputAdresse) {
+        inputAdresse.addEventListener('change', calculerDistanceAutomatique);
+        inputAdresse.addEventListener('blur', calculerDistanceAutomatique);
+    }
+
+    // Modification manuelle de la distance ou de la date
     if (inputDistance) inputDistance.addEventListener('input', recalculerDevis);
     if (inputDate) inputDate.addEventListener('change', recalculerDevis);
+
+    // Coordonnées GPS de Julie & José (12 Cours de l'Intendance, Bordeaux)
+    const ATELIER_GPS = { lat: 44.8427, lon: -0.5755 };
+
+    async function calculerDistanceAutomatique() {
+        const adresse = inputAdresse ? inputAdresse.value.trim() : '';
+        const ville = inputVille ? inputVille.value.trim() : 'Bordeaux';
+
+        if (!ville) return;
+
+        // Règle métier : Bordeaux intra-muros = 0 km (Livraison offerte)
+        if (ville.toLowerCase() === 'bordeaux') {
+            if (inputDistance) inputDistance.value = 0;
+            recalculerDevis();
+            return;
+        }
+
+        try {
+            // 1. Géocodage de l'adresse du client via l'API Adresse officielle (BAN)
+            const query = encodeURIComponent(`${adresse} ${ville}`.trim());
+            const resBan = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${query}&limit=1`);
+            const dataBan = await resBan.json();
+
+            if (!dataBan.features || dataBan.features.length === 0) {
+                return;
+            }
+
+            const [clientLon, clientLat] = dataBan.features[0].geometry.coordinates;
+
+            // 2. Calcul de la distance routière réelle en voiture via OSRM
+            const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${ATELIER_GPS.lon},${ATELIER_GPS.lat};${clientLon},${clientLat}?overview=false`;
+            const resRoute = await fetch(osrmUrl);
+            const dataRoute = await resRoute.json();
+
+            if (dataRoute.routes && dataRoute.routes.length > 0) {
+                const distanceKm = Math.round(dataRoute.routes[0].distance / 1000);
+
+                if (inputDistance) {
+                    inputDistance.value = distanceKm;
+                    inputDistance.style.backgroundColor = '#ECFDF5';
+                    setTimeout(() => { inputDistance.style.backgroundColor = ''; }, 1200);
+                }
+
+                recalculerDevis();
+            }
+        } catch (err) {
+            console.warn('Géocodage automatique indisponible, saisie manuelle conservée :', err);
+        }
+    }
 
     // 5. Calcul Devis en direct
     function recalculerDevis() {
@@ -191,7 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (sim.remise_appliquee && bannerRemise) {
                     bannerRemise.style.display = 'flex';
                     const remiseUnit = sim.prix_unitaire_ttc * 0.10;
-                    if (remiseParPersonne) remiseParPersonne.textContent = `-${remiseUnit.toFixed(2).replace('.', ',')} €`;
+                    if (remiseParPersonne) remiseParPersonne.textContent = `-${remiseUnit.toFixed(2).replace('.', ',')} € / pers.`;
                 } else if (bannerRemise) {
                     bannerRemise.style.display = 'none';
                 }
