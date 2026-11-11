@@ -594,9 +594,7 @@ h3 {
 }
 
 .pill-stock::before {
-    content: '●';
-    font-size: 8px;
-    color: #D97706;
+    display: none !important;
 }
 
 .card-menu-body {
