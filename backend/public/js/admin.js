@@ -117,10 +117,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const idCommande = cmd.id || cmd.commande_id;
             const numeroCommande = cmd.numero_commande || (`CMD-${idCommande}`);
-            const dateLivraison = cmd.date_livraison_souhaitee || cmd.date_livraison || '-';
-            const ville = cmd.ville_livraison || cmd.ville || 'Bordeaux';
-            const distance = cmd.distance_km || cmd.distance || 0;
-            const totalTtc = parseFloat(cmd.total_ttc || 0).toFixed(2);
+
+            // 1. Date formatée à la française : JJ/MM/AAAA à HHhMM
+            const rawDate = cmd.date_livraison_souhaitee || cmd.date_livraison;
+            let dateLivraison = '-';
+            if (rawDate && rawDate !== '-') {
+                const d = new Date(rawDate.replace(' ', 'T'));
+                dateLivraison = !isNaN(d.getTime())
+                    ? d.toLocaleString('fr-FR', {
+                        day: '2-digit', month: '2-digit', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
+                      }).replace(':', 'h').replace(' ', ' à ')
+                    : rawDate;
+            }
+
+            // 2. Harmonisation de la ville (Casse propre) et arrondi des kilomètres
+            const rawVille = cmd.ville_livraison || cmd.ville || 'Bordeaux';
+            const ville = rawVille
+                .toLowerCase()
+                .split(' ')
+                .map(mot => mot.charAt(0).toUpperCase() + mot.slice(1))
+                .join(' ');
+            
+            const distanceKm = Math.round(parseFloat(cmd.distance_km || cmd.distance || 0));
+
+            // 3. Montant total formaté avec virgule
+            const totalTtc = parseFloat(cmd.total_ttc || 0).toFixed(2).replace('.', ',');
 
             let articleStr = '-';
             if (cmd.articles && Array.isArray(cmd.articles) && cmd.articles.length > 0) {
@@ -138,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <small style="color: var(--color-text-muted);">${email}</small>
                 </td>
                 <td>${dateLivraison}</td>
-                <td>${ville} <small>(${distance} km)</small></td>
+                <td>${ville} <small>(${distanceKm} km)</small></td>
                 <td>${articleStr}</td>
                 <td><strong>${totalTtc} €</strong></td>
                 <td>
