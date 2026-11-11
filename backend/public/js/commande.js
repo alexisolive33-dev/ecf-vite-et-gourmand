@@ -1,17 +1,20 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Contrôle d'accès et gestion de la session
-    const authToken = localStorage.getItem('auth_token');
-    const userProfileRaw = localStorage.getItem('user_profile');
-    const user = userProfileRaw ? JSON.parse(userProfileRaw) : null;
+    // 1. Contrôle d'accès et session (tolérance visiteur anonyme)
+    const authToken = localStorage.getItem('auth_token') || localStorage.getItem('token');
+    const userProfileRaw = localStorage.getItem('user_profile') || localStorage.getItem('user');
+    let user = null;
 
-    majNavbar(user);
-
-    if (!authToken || !user) {
-        window.location.href = `/login.html?tab=register&redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-        return;
+    try {
+        user = userProfileRaw ? JSON.parse(userProfileRaw) : null;
+    } catch (e) {
+        user = null;
     }
 
-    const currentUserId = user.id || user.utilisateur_id;
+    // Mise à jour de la navbar (gère l'état connecté ou non)
+    majNavbar(user);
+
+    // L'identifiant utilisateur est null si non connecté
+    const currentUserId = user ? (user.id || user.utilisateur_id) : null;
 
     const urlParams = new URLSearchParams(window.location.search);
     const menuId = parseInt(urlParams.get('id')) || 1;
@@ -60,13 +63,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const valTotalTtc = document.getElementById('val-total-ttc');
     const btnValider = document.getElementById('btn-valider-commande');
 
-    // 2. Auto-remplissage avec les informations du compte client
-    if (inputNom && user.nom) inputNom.value = user.nom;
-    if (inputPrenom && user.prenom) inputPrenom.value = user.prenom;
-    if (inputEmail && user.email) inputEmail.value = user.email;
-    if (inputTel && user.telephone) inputTel.value = user.telephone;
-    if (inputAdresse && user.adresse_postale) inputAdresse.value = user.adresse_postale;
-    if (inputCp && user.code_postal) inputCp.value = user.code_postal;
+    // 2. Auto-remplissage sécurisé (uniquement si le client est connecté)
+    if (user) {
+        if (inputNom && user.nom) inputNom.value = user.nom;
+        if (inputPrenom && user.prenom) inputPrenom.value = user.prenom;
+        if (inputEmail && user.email) inputEmail.value = user.email;
+        if (inputTel && user.telephone) inputTel.value = user.telephone;
+        if (inputAdresse && user.adresse_postale) inputAdresse.value = user.adresse_postale;
+        if (inputCp && user.code_postal) inputCp.value = user.code_postal;
+    }
 
     const dateMin = new Date();
     dateMin.setDate(dateMin.getDate() + 7);
@@ -86,9 +91,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     nbConvives = parseInt(currentMenu.convives_min);
                 }
                 
-                // Si un code postal est déjà présent dans le profil, on charge ses villes
+                // Si un code postal est présent (profil connecté ou valeur saisie), charger les communes
                 if (inputCp && inputCp.value.trim().length === 5) {
-                    chargerVillesParCp(inputCp.value.trim(), user.ville);
+                    chargerVillesParCp(inputCp.value.trim(), user ? user.ville : '');
                 } else {
                     recalculerDevis();
                 }
@@ -194,7 +199,6 @@ document.addEventListener('DOMContentLoaded', () => {
             listeCommunesTrouvees = communes;
             selectVille.innerHTML = '';
 
-            // S'il y a plusieurs communes, on affiche une option d'invitation
             if (communes.length > 1) {
                 const optDefault = document.createElement('option');
                 optDefault.value = '';
@@ -218,7 +222,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             selectVille.disabled = false;
 
-            // Déclenchement automatique du calcul kilométrique
             if (communes.length === 1) {
                 selectVille.value = communes[0].nom;
                 appliquerDistanceDepuisCommune(communes[0]);
@@ -233,7 +236,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Événement quand le client choisit une ville dans la liste déroulante
     if (selectVille) {
         selectVille.addEventListener('change', () => {
             const nomChoisi = selectVille.value;
@@ -249,13 +251,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function appliquerDistanceDepuisCommune(commune) {
         if (!commune) return;
 
-        // Règle 1 : Bordeaux intra-muros = 0 km (Livraison offerte)
         if (commune.nom.toLowerCase().includes('bordeaux')) {
             appliquerDistance(0);
             return;
         }
 
-        // Règle 2 : Calcul direct par coordonnées GPS
         if (commune.centre && commune.centre.coordinates) {
             const [lon, lat] = commune.centre.coordinates;
 
@@ -284,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (inputDate) inputDate.addEventListener('change', recalculerDevis);
 
-    // 5. Calcul Devis en direct
+    // 5. Calcul Devis en direct (Accessible à tous sans connexion requise)
     function recalculerDevis() {
         if (!currentMenu) return;
         if (displayNbConvives) displayNbConvives.textContent = `${nbConvives} convives`;
@@ -301,12 +301,14 @@ document.addEventListener('DOMContentLoaded', () => {
             ville: villeVal
         };
 
+        const headers = { 'Content-Type': 'application/json' };
+        if (authToken) {
+            headers['Authorization'] = `Bearer ${authToken}`;
+        }
+
         fetch('/api/commandes/simuler', {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-            },
+            headers: headers,
             body: JSON.stringify(payload)
         })
         .then(res => res.json())
@@ -343,10 +345,17 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(err => console.error('Erreur calcul simulation:', err));
     }
 
-    // 6. Validation de commande
+    // 6. Validation finale : authentification exigée uniquement ici
     if (btnValider) {
         btnValider.addEventListener('click', () => {
             if (!currentSimulation) return;
+
+            // Redirection vers connexion si visiteur non authentifié
+            if (!authToken || !user) {
+                alert("Veuillez vous connecter ou créer un compte pour confirmer votre commande.");
+                window.location.href = `/login.html?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+                return;
+            }
 
             btnValider.disabled = true;
             btnValider.textContent = 'Enregistrement de votre commande...';
