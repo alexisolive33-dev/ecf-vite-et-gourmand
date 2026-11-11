@@ -164,16 +164,17 @@
                     <input type="text" id="cfg-adresse" class="config-input" placeholder="Ex: 14 Avenue du Château">
                 </div>
 
-                <!-- Code Postal & Sélection dynamique de Ville -->
+                <!-- Code Postal & Vrai Menu Déroulant Ville -->
                 <div class="config-row-2">
                     <div class="config-field-group">
-                        <label for="cfg-cp">Code Postal</label>
-                        <input type="text" id="cfg-cp" class="config-input" placeholder="Ex: 33000" maxlength="5">
+                        <label for="cfg-cp">Code Postal *</label>
+                        <input type="text" id="cfg-cp" class="config-input" placeholder="Ex: 56240 ou 33000" maxlength="5" required>
                     </div>
                     <div class="config-field-group">
-                        <label for="cfg-ville">Ville</label>
-                        <select id="cfg-ville-select" class="config-select" style="display: none;"></select>
-                        <input type="text" id="cfg-ville" class="config-input" placeholder="Tapez votre ville">
+                        <label for="cfg-ville">Ville *</label>
+                        <select id="cfg-ville" class="config-select" required>
+                            <option value="">Entrez un code postal (5 chiffres)...</option>
+                        </select>
                     </div>
                 </div>
 

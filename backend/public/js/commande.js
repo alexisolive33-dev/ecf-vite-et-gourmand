@@ -19,42 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentMenu = null;
     let nbConvives = 12;
     let currentSimulation = null;
-    let timerCalculDistance = null;
+    let listeCommunesTrouvees = [];
 
-    // Référentiel kilométrique direct depuis l'atelier (12 Cours de l'Intendance, Bordeaux)
-    const DISTANCES_PREDEFINIES = {
-        'bordeaux': 0,
-        'le bouscat': 4,
-        'talence': 5,
-        'begles': 6,
-        'cenon': 6,
-        'floirac': 6,
-        'lormont': 7,
-        'pessac': 7,
-        'bruges': 7,
-        'merignac': 8,
-        'eysines': 9,
-        'villenave d ornon': 9,
-        'villenave-d-ornon': 9,
-        'gradignan': 10,
-        'blanquefort': 12,
-        'saint medard en jalles': 15,
-        'saint-medard-en-jalles': 15,
-        'libourne': 36,
-        'saint emilion': 42,
-        'saint-emilion': 42,
-        'andernos les bains': 48,
-        'andernos-les-bains': 48,
-        'langon': 48,
-        'lacanau': 52,
-        'gujan mestras': 55,
-        'gujan-mestras': 55,
-        'lege cap ferret': 55,
-        'la teste de buch': 60,
-        'arcachon': 65,
-        'lanvaudan': 485
-    };
-
+    // Atelier Julie & José (12 Cours de l'Intendance, Bordeaux)
     const ATELIER_GPS = { lat: 44.8427, lon: -0.5755 };
 
     // Éléments du DOM
@@ -80,7 +47,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const inputEmail = document.getElementById('cfg-email');
     const inputTel = document.getElementById('cfg-tel') || document.getElementById('cfg-telephone');
     const inputAdresse = document.getElementById('cfg-adresse');
-    const inputVille = document.getElementById('cfg-ville');
+    const inputCp = document.getElementById('cfg-cp');
+    const selectVille = document.getElementById('cfg-ville');
     const inputDistance = document.getElementById('cfg-distance');
     const inputDate = document.getElementById('cfg-date');
 
@@ -92,13 +60,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const valTotalTtc = document.getElementById('val-total-ttc');
     const btnValider = document.getElementById('btn-valider-commande');
 
-    // 2. Auto-remplissage des champs
+    // 2. Auto-remplissage avec les informations du compte client
     if (inputNom && user.nom) inputNom.value = user.nom;
     if (inputPrenom && user.prenom) inputPrenom.value = user.prenom;
     if (inputEmail && user.email) inputEmail.value = user.email;
     if (inputTel && user.telephone) inputTel.value = user.telephone;
     if (inputAdresse && user.adresse_postale) inputAdresse.value = user.adresse_postale;
-    if (inputVille && user.ville) inputVille.value = user.ville;
+    if (inputCp && user.code_postal) inputCp.value = user.code_postal;
 
     const dateMin = new Date();
     dateMin.setDate(dateMin.getDate() + 7);
@@ -118,8 +86,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     nbConvives = parseInt(currentMenu.convives_min);
                 }
                 
-                // Détection initiale de la distance
-                calculerDistanceAutomatique();
+                // Si un code postal est déjà présent dans le profil, on charge ses villes
+                if (inputCp && inputCp.value.trim().length === 5) {
+                    chargerVillesParCp(inputCp.value.trim(), user.ville);
+                } else {
+                    recalculerDevis();
+                }
             }
         })
         .catch(err => console.error('Erreur chargement menu:', err));
@@ -189,79 +161,116 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Déclenchement automatique dès la frappe dans le champ VILLE ou ADRESSE
-    function planifierCalculDistance() {
-        clearTimeout(timerCalculDistance);
-        timerCalculDistance = setTimeout(calculerDistanceAutomatique, 350);
+    // -------------------------------------------------------------
+    // CHARGEMENT DU MENU DÉROULANT DES VILLES VIA LE CODE POSTAL
+    // -------------------------------------------------------------
+    if (inputCp) {
+        inputCp.addEventListener('input', (e) => {
+            const cp = e.target.value.trim();
+            if (cp.length === 5 && /^[0-9]{5}$/.test(cp)) {
+                chargerVillesParCp(cp);
+            } else if (cp.length < 5) {
+                selectVille.innerHTML = '<option value="">Entrez un code postal (5 chiffres)...</option>';
+                if (inputDistance) inputDistance.value = 0;
+                recalculerDevis();
+            }
+        });
     }
 
-    if (inputVille) {
-        inputVille.addEventListener('input', planifierCalculDistance);
-        inputVille.addEventListener('change', calculerDistanceAutomatique);
-        inputVille.addEventListener('blur', calculerDistanceAutomatique);
-    }
-    if (inputAdresse) {
-        inputAdresse.addEventListener('change', calculerDistanceAutomatique);
-        inputAdresse.addEventListener('blur', calculerDistanceAutomatique);
-    }
+    async function chargerVillesParCp(codePostal, villeSelectionnee = '') {
+        selectVille.innerHTML = '<option value="">Recherche des communes en cours...</option>';
+        selectVille.disabled = true;
 
-    if (inputDistance) inputDistance.addEventListener('input', recalculerDevis);
-    if (inputDate) inputDate.addEventListener('change', recalculerDevis);
+        try {
+            const res = await fetch(`https://geo.api.gouv.fr/communes?codePostal=${codePostal}&fields=nom,centre`);
+            const communes = await res.json();
 
-    // Fonction de calcul kilométrique résiliente
-    async function calculerDistanceAutomatique() {
-        const rawVille = inputVille ? inputVille.value.trim() : '';
-        const rawAdresse = inputAdresse ? inputAdresse.value.trim() : '';
+            if (!communes || communes.length === 0) {
+                selectVille.innerHTML = '<option value="">Aucune commune trouvée pour ce code postal</option>';
+                selectVille.disabled = false;
+                return;
+            }
 
-        if (!rawVille) {
-            recalculerDevis();
-            return;
+            listeCommunesTrouvees = communes;
+            selectVille.innerHTML = '';
+
+            // S'il y a plusieurs communes, on affiche une option d'invitation
+            if (communes.length > 1) {
+                const optDefault = document.createElement('option');
+                optDefault.value = '';
+                optDefault.textContent = `-- Choisissez parmi les ${communes.length} communes --`;
+                selectVille.appendChild(optDefault);
+            }
+
+            let indexSelectionne = communes.length === 1 ? 0 : -1;
+
+            communes.forEach((commune, index) => {
+                const opt = document.createElement('option');
+                opt.value = commune.nom;
+                opt.textContent = commune.nom;
+
+                if (villeSelectionnee && commune.nom.toLowerCase() === villeSelectionnee.toLowerCase()) {
+                    opt.selected = true;
+                    indexSelectionne = index;
+                }
+                selectVille.appendChild(opt);
+            });
+
+            selectVille.disabled = false;
+
+            // Déclenchement automatique du calcul kilométrique
+            if (communes.length === 1) {
+                selectVille.value = communes[0].nom;
+                appliquerDistanceDepuisCommune(communes[0]);
+            } else if (indexSelectionne >= 0) {
+                appliquerDistanceDepuisCommune(communes[indexSelectionne]);
+            }
+
+        } catch (err) {
+            console.error("Erreur API Communes :", err);
+            selectVille.innerHTML = '<option value="">Erreur de recherche (réseau)</option>';
+            selectVille.disabled = false;
         }
+    }
 
-        // Nettoyage de la chaîne de recherche (minuscules, sans accents)
-        const villeNormalisee = rawVille.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    // Événement quand le client choisit une ville dans la liste déroulante
+    if (selectVille) {
+        selectVille.addEventListener('change', () => {
+            const nomChoisi = selectVille.value;
+            if (!nomChoisi) return;
 
-        // 1. Priorité absolue : Consultation immédiate du référentiel local (0ms, immunisé contre Brave)
-        if (DISTANCES_PREDEFINIES.hasOwnProperty(villeNormalisee)) {
-            appliquerDistance(DISTANCES_PREDEFINIES[villeNormalisee]);
-            return;
-        }
+            const communeObj = listeCommunesTrouvees.find(c => c.nom === nomChoisi);
+            if (communeObj) {
+                appliquerDistanceDepuisCommune(communeObj);
+            }
+        });
+    }
 
-        // 2. Vérification Bordeaux intra-muros
-        if (villeNormalisee.includes('bordeaux')) {
+    function appliquerDistanceDepuisCommune(commune) {
+        if (!commune) return;
+
+        // Règle 1 : Bordeaux intra-muros = 0 km (Livraison offerte)
+        if (commune.nom.toLowerCase().includes('bordeaux')) {
             appliquerDistance(0);
             return;
         }
 
-        // 3. Secours réseau pour les autres villes
-        try {
-            const query = encodeURIComponent(`${rawAdresse} ${rawVille}`.trim());
-            let res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${query}&limit=1`);
-            let data = await res.json();
+        // Règle 2 : Calcul direct par coordonnées GPS
+        if (commune.centre && commune.centre.coordinates) {
+            const [lon, lat] = commune.centre.coordinates;
 
-            if (!data.features || data.features.length === 0) {
-                res = await fetch(`https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(rawVille)}&limit=1`);
-                data = await res.json();
-            }
+            const dLat = (lat - ATELIER_GPS.lat) * (Math.PI / 180);
+            const dLon = (lon - ATELIER_GPS.lon) * (Math.PI / 180);
+            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                      Math.cos(ATELIER_GPS.lat * (Math.PI / 180)) * Math.cos(lat * (Math.PI / 180)) *
+                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+            const distanceVolOiseau = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+            const distanceKm = Math.max(1, Math.round(distanceVolOiseau * 1.28));
 
-            if (data.features && data.features.length > 0) {
-                const [lon, lat] = data.features[0].geometry.coordinates;
-                const dLat = (lat - ATELIER_GPS.lat) * (Math.PI / 180);
-                const dLon = (lon - ATELIER_GPS.lon) * (Math.PI / 180);
-                const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                          Math.cos(ATELIER_GPS.lat * (Math.PI / 180)) * Math.cos(lat * (Math.PI / 180)) *
-                          Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                const distanceVolOiseau = 6371 * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
-                const kmEstime = Math.max(1, Math.round(distanceVolOiseau * 1.28));
-                
-                appliquerDistance(kmEstime);
-                return;
-            }
-        } catch (e) {
-            console.warn("Calcul automatique par API non disponible :", e);
+            appliquerDistance(distanceKm);
+        } else {
+            recalculerDevis();
         }
-
-        recalculerDevis();
     }
 
     function appliquerDistance(km) {
@@ -273,13 +282,15 @@ document.addEventListener('DOMContentLoaded', () => {
         recalculerDevis();
     }
 
+    if (inputDate) inputDate.addEventListener('change', recalculerDevis);
+
     // 5. Calcul Devis en direct
     function recalculerDevis() {
         if (!currentMenu) return;
         if (displayNbConvives) displayNbConvives.textContent = `${nbConvives} convives`;
 
         const distanceVal = inputDistance ? (parseFloat(inputDistance.value) || 0) : 0;
-        const villeVal = inputVille ? (inputVille.value.trim() || 'Bordeaux') : 'Bordeaux';
+        const villeVal = selectVille ? (selectVille.value.trim() || 'Bordeaux') : 'Bordeaux';
         const dateVal = (inputDate && inputDate.value) ? inputDate.value.replace('T', ' ') + ':00' : '2026-12-24 19:00:00';
 
         const payload = {
@@ -304,7 +315,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sim = res.simulation;
                 currentSimulation = sim;
 
-                // Nettoyage de l'affichage de la remise
                 if (sim.remise_appliquee && bannerRemise) {
                     bannerRemise.style.display = 'flex';
                     const remiseUnit = sim.prix_unitaire_ttc * 0.10;
@@ -347,6 +357,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 distance_km: currentSimulation.distance_km,
                 date_livraison: currentSimulation.date_livraison,
                 ville: currentSimulation.ville_livraison,
+                code_postal: inputCp ? inputCp.value.trim() : '33000',
                 adresse_livraison: inputAdresse ? (inputAdresse.value.trim() || user.adresse_postale || '14 Avenue du Château') : '14 Avenue du Château',
                 utilisateur_id: currentUserId
             };
