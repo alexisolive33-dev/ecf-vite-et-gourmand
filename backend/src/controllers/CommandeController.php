@@ -237,9 +237,11 @@ class CommandeController
         try {
             $pdo = $this->getPdo();
 
-            // Jointure via ligne_commande pour récupérer le menu sans erreur sur c.menu_id
+            // Jointure via ligne_commande avec sélection de nb_convives et date_livraison_souhaitee
             $stmt = $pdo->prepare("
                 SELECT c.*, 
+                       COALESCE(lc.nb_convives, 0) AS nb_convives,
+                       c.date_livraison_souhaitee AS date_livraison,
                        COALESCE(m.titre, 'Formule Traiteur') AS menu_titre, 
                        m.theme, 
                        m.image_url
@@ -330,7 +332,7 @@ class CommandeController
                     }
                 }
             } catch (Exception $eStock) {
-                // Secours en cas de structure personnalisée
+                // Secours en cas de structure alternative
             }
 
             http_response_code(200);

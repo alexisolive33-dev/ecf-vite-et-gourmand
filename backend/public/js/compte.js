@@ -95,8 +95,23 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'order-card';
 
             const rawStatut = (cmd.statut || 'en_attente').toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-            const dateCreation = cmd.date_creation ? new Date(cmd.date_creation).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Récemment';
-            const datePrestation = cmd.date_livraison ? new Date(cmd.date_livraison.replace(' ', 'T')).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'Non précisée';
+            
+            // Formatage de la date de création de la commande
+            const rawDateCreation = cmd.date_creation || cmd.date_commande || cmd.created_at;
+            const dateCreation = rawDateCreation ? new Date(rawDateCreation.replace(' ', 'T')).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Récemment';
+            
+            // Formatage résilient de la date de livraison souhaitée
+            const rawDatePrestation = cmd.date_livraison_souhaitee || cmd.date_livraison;
+            let datePrestation = 'Non précisée';
+            if (rawDatePrestation) {
+                const d = new Date(rawDatePrestation.replace(' ', 'T'));
+                datePrestation = !isNaN(d.getTime())
+                    ? d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : rawDatePrestation;
+            }
+
+            // Nombre de convives récupéré depuis ligne_commande
+            const nbConvivesAffiche = cmd.nb_convives || (cmd.articles && cmd.articles[0] && cmd.articles[0].nb_convives) || '-';
 
             // Classe CSS et libellé du badge
             let badgeClass = 'status-en-attente';
@@ -141,14 +156,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     <div class="order-details">
                         <h4>${cmd.menu_titre || 'Formule Traiteur'}</h4>
-                        <p><strong>Prestation :</strong> Pour ${cmd.nb_convives} convives</p>
+                        <p><strong>Prestation :</strong> Pour ${nbConvivesAffiche} convives</p>
                         <p><strong>Date & Heure :</strong> ${datePrestation}</p>
-                        <p><strong>Lieu de livraison :</strong> ${cmd.adresse_livraison || ''}, ${cmd.ville || 'Bordeaux'}</p>
+                        <p><strong>Lieu de livraison :</strong> ${cmd.adresse_livraison || ''}, ${cmd.ville_livraison || cmd.ville || 'Bordeaux'}</p>
                     </div>
 
                     <div class="order-pricing">
                         <div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px;">Montant Total TTC</div>
-                        <div class="order-total">${parseFloat(cmd.total_ttc).toFixed(2).replace('.', ',')} €</div>
+                        <div class="order-total">${parseFloat(cmd.total_ttc || 0).toFixed(2).replace('.', ',')} €</div>
                         <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px;">Dont livraison : ${parseFloat(cmd.frais_livraison || 0).toFixed(2).replace('.', ',')} €</div>
                     </div>
                 </div>
@@ -391,13 +406,20 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================
     function majNavbar(userData) {
         const navConnexionLink = document.querySelector('.btn-connexion') || 
+                                 document.querySelector('a[href*="login"]') || 
                                  Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toLowerCase() === 'connexion');
 
         if (navConnexionLink && userData) {
+            const isAdmin = (userData.role === 'admin' || userData.role === 'employe');
             const profileWrapper = document.createElement('div');
-            profileWrapper.style.cssText = 'display: inline-flex; align-items: center; gap: 10px;';
+            profileWrapper.style.cssText = 'display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; justify-self: end;';
             profileWrapper.innerHTML = `
-                <a href="/compte.html" style="text-decoration: none; font-size: 13px; font-weight: 600; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px;">
+                ${isAdmin ? `
+                    <a href="/admin.html" style="background: var(--color-primary, #721B29); color: #FFFFFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                        ⚙️ Admin
+                    </a>
+                ` : ''}
+                <a href="/compte.html" style="text-decoration: none; font-size: 13px; font-weight: 700; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
                     👤 ${userData.prenom || ''}
                 </a>
                 <button type="button" id="btn-logout" style="background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
