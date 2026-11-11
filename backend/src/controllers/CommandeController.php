@@ -23,17 +23,51 @@ class CommandeController
     }
 
     /**
-     * Helper de connexion PDO résilient
+     * Helper de connexion PDO universel et résilient
      */
     private function getPdo(): PDO
     {
-        if (class_exists('\\App\\Config\\Database')) {
-            return \App\Config\Database::getInstance()->getConnection();
+        $dbClass = class_exists('\\App\\Config\\Database') ? '\\App\\Config\\Database' : (class_exists('\\Database') ? '\\Database' : null);
+
+        if ($dbClass) {
+            // 1. Appel direct si getConnection() existe (statique ou d'instance)
+            if (method_exists($dbClass, 'getConnection')) {
+                $refMethod = new \ReflectionMethod($dbClass, 'getConnection');
+                return $refMethod->isStatic() ? $dbClass::getConnection() : (new $dbClass())->getConnection();
+            }
+
+            // 2. Appel si getInstance() existe
+            if (method_exists($dbClass, 'getInstance')) {
+                $instance = $dbClass::getInstance();
+                return method_exists($instance, 'getConnection') ? $instance->getConnection() : $instance;
+            }
+
+            // 3. Appel si getPdo() existe
+            if (method_exists($dbClass, 'getPdo')) {
+                $refMethod = new \ReflectionMethod($dbClass, 'getPdo');
+                return $refMethod->isStatic() ? $dbClass::getPdo() : (new $dbClass())->getPdo();
+            }
+
+            // 4. Propriété publique $pdo ou $db
+            $instance = new $dbClass();
+            if (isset($instance->pdo) && $instance->pdo instanceof PDO) return $instance->pdo;
+            if (isset($instance->db) && $instance->db instanceof PDO) return $instance->db;
         }
-        if (class_exists('\\Database')) {
-            return \Database::getInstance()->getConnection();
+
+        // 5. Repli : extraction du PDO depuis le modèle CommandeModel déjà instancié
+        if (isset($this->commandeModel)) {
+            $ref = new \ReflectionClass($this->commandeModel);
+            foreach (['pdo', 'db', 'connection', 'connexion'] as $prop) {
+                if ($ref->hasProperty($prop)) {
+                    $p = $ref->getProperty($prop);
+                    $p->setAccessible(true);
+                    $val = $p->getValue($this->commandeModel);
+                    if ($val instanceof PDO) return $val;
+                }
+            }
         }
-        throw new Exception("Connexion à la base de données indisponible.");
+
+        throw new Exception("Connexion PDO introuvable.");
     }
 
     /**
