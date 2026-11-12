@@ -149,4 +149,32 @@ class AvisController
             ], JSON_UNESCAPED_UNICODE);
         }
     }
+
+    /**
+     * GET /api/avis/mes-avis?utilisateur_id=...
+     */
+    public function mesAvis(): void
+    {
+        $utilisateurId = isset($_GET['utilisateur_id']) ? (int)$_GET['utilisateur_id'] : 0;
+        if ($utilisateurId <= 0) {
+            echo json_encode([
+                'statut' => 'succes',
+                'commandes_notees' => []
+            ], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            $ids = $this->avisModel->getCommandesNoteesParUtilisateur($utilisateurId);
+            echo json_encode([
+                'statut' => 'succes',
+                'commandes_notees' => $ids
+            ], JSON_UNESCAPED_UNICODE);
+        } catch (\Throwable $e) {
+            echo json_encode([
+                'statut' => 'succes',
+                'commandes_notees' => []
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
 }

@@ -84,7 +84,12 @@ if (preg_match('#^/api/admin/commandes/([0-9]+)/statut$#', $uri, $matches) && $m
     exit;
 }
 
-// Avis Clients - Public & Dépôt Client
+// Avis Clients - Public, Dépôt & Suivi Client
+if ($uri === '/api/avis/mes-avis' && $method === 'GET') {
+    (new AvisController())->mesAvis();
+    exit;
+}
+
 if ($uri === '/api/avis' && $method === 'GET') {
     (new AvisController())->index();
     exit;

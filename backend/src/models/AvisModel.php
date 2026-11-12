@@ -223,4 +223,29 @@ class AvisModel
         $stmt = $this->db->prepare('DELETE FROM avis WHERE id = :id');
         return $stmt->execute([':id' => $id]);
     }
+
+/**
+     * Récupère les identifiants des commandes déjà notées par un client
+     */
+    public function getCommandesNoteesParUtilisateur(int $utilisateurId): array
+    {
+        if (!in_array('commande_id', $this->columns, true)) {
+            return [];
+        }
+
+        if (in_array('utilisateur_id', $this->columns, true)) {
+            $stmt = $this->db->prepare('SELECT commande_id FROM avis WHERE utilisateur_id = :uid AND commande_id IS NOT NULL');
+            $stmt->execute([':uid' => $utilisateurId]);
+            return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+        }
+
+        $stmt = $this->db->prepare('
+            SELECT a.commande_id
+            FROM avis a
+            INNER JOIN commande c ON a.commande_id = c.id
+            WHERE c.utilisateur_id = :uid AND a.commande_id IS NOT NULL
+        ');
+        $stmt->execute([':uid' => $utilisateurId]);
+        return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+    }
 }

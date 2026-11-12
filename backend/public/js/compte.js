@@ -15,10 +15,9 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Récupération sécurisée de l'ID utilisateur (tolérance id ou utilisateur_id)
     const currentUserId = user.id || user.utilisateur_id;
+    let commandesDejaNotees = new Set();
 
-    // Mise à jour de la navbar et du message de bienvenue
     majNavbar(user);
     const welcomeTitle = document.getElementById('user-welcome-title');
     if (welcomeTitle) {
@@ -55,35 +54,54 @@ document.addEventListener('DOMContentLoaded', () => {
         const emptyEl = document.getElementById('orders-empty');
         const listEl = document.getElementById('orders-list');
 
-        fetch(`/api/commandes/mes-commandes?utilisateur_id=${userId}`, {
-            headers: {
-                'Authorization': `Bearer ${authToken}`
-            }
-        })
-        .then(async res => {
+        const reqCommandes = fetch(`/api/commandes/mes-commandes?utilisateur_id=${userId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        }).then(async res => {
             const data = await res.json();
-            if (!res.ok) {
-                throw new Error(data.message || `Erreur HTTP ${res.status}`);
-            }
+            if (!res.ok) throw new Error(data.message || `Erreur HTTP ${res.status}`);
             return data;
-        })
-        .then(res => {
-            if (loadingEl) loadingEl.style.display = 'none';
-
-            if (res.statut === 'succes' && res.commandes && res.commandes.length > 0) {
-                if (emptyEl) emptyEl.style.display = 'none';
-                afficherCommandes(res.commandes, listEl);
-            } else {
-                if (emptyEl) emptyEl.style.display = 'block';
-                if (listEl) listEl.innerHTML = '';
-            }
-        })
-        .catch(err => {
-            console.error('Erreur API commandes:', err);
-            if (loadingEl) {
-                loadingEl.innerHTML = `<p style="color: var(--color-primary);">Impossible de charger vos commandes : ${err.message}</p>`;
-            }
         });
+
+        const reqAvis = fetch(`/api/avis/mes-avis?utilisateur_id=${userId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        })
+            .then(res => res.json())
+            .catch(() => ({ commandes_notees: [] }));
+
+        Promise.all([reqCommandes, reqAvis])
+            .then(([resCmd, resAvis]) => {
+                if (loadingEl) loadingEl.style.display = 'none';
+
+                if (resAvis && Array.isArray(resAvis.commandes_notees)) {
+                    commandesDejaNotees = new Set(resAvis.commandes_notees.map(id => Number(id)));
+                }
+
+                if (resCmd.statut === 'succes' && resCmd.commandes && resCmd.commandes.length > 0) {
+                    if (emptyEl) emptyEl.style.display = 'none';
+                    afficherCommandes(resCmd.commandes, listEl);
+                } else {
+                    if (emptyEl) emptyEl.style.display = 'block';
+                    if (listEl) listEl.innerHTML = '';
+                }
+            })
+            .catch(err => {
+                console.error('Erreur API commandes:', err);
+                if (loadingEl) {
+                    loadingEl.innerHTML = `<p style="color: var(--color-primary);">Impossible de charger vos commandes : ${err.message}</p>`;
+                }
+            });
+    }
+
+    function badgeAvisEnvoyeHtml() {
+        return `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: #DCFCE7; color: #166534; border-radius: 6px; font-size: 12px; font-weight: 700;">✓ Avis déjà envoyé</span>`;
+    }
+
+    function marquerCommandeCommeNotee(cmdId) {
+        commandesDejaNotees.add(Number(cmdId));
+        const btn = document.querySelector(`.btn-avis-order[data-id="${cmdId}"]`);
+        if (btn) {
+            btn.outerHTML = badgeAvisEnvoyeHtml();
+        }
     }
 
     function afficherCommandes(commandes, container) {
@@ -96,11 +114,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const rawStatut = (cmd.statut || 'en_attente').toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
             
-            // Formatage de la date de création de la commande
             const rawDateCreation = cmd.date_creation || cmd.date_commande || cmd.created_at;
             const dateCreation = rawDateCreation ? new Date(rawDateCreation.replace(' ', 'T')).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Récemment';
             
-            // Formatage résilient de la date de livraison souhaitée
             const rawDatePrestation = cmd.date_livraison_souhaitee || cmd.date_livraison;
             let datePrestation = 'Non précisée';
             if (rawDatePrestation) {
@@ -110,10 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     : rawDatePrestation;
             }
 
-            // Nombre de convives récupéré depuis ligne_commande
             const nbConvivesAffiche = cmd.nb_convives || (cmd.articles && cmd.articles[0] && cmd.articles[0].nb_convives) || '-';
 
-            // Classe CSS et libellé du badge
             let badgeClass = 'status-en-attente';
             let libelleStatut = 'En attente';
 
@@ -131,11 +145,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 libelleStatut = 'Annulée';
             }
 
-            // Possibilité d'annulation : tant que la commande est "en_attente"
             const peutAnnuler = rawStatut.includes('attente') || rawStatut === 'creee' || rawStatut === 'cree';
             const estTerminee = rawStatut.includes('livr') || rawStatut.includes('term');
+            const dejaNotee = commandesDejaNotees.has(Number(cmd.id));
 
             const timelineHtml = genererTimeline(rawStatut);
+
+            let actionAvisHtml = '';
+            if (estTerminee) {
+                actionAvisHtml = dejaNotee
+                    ? badgeAvisEnvoyeHtml()
+                    : `<button type="button" class="btn-avis-order" data-id="${cmd.id}">★ Laisser un avis</button>`;
+            }
 
             card.innerHTML = `
                 <div class="order-card-header">
@@ -168,7 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     </div>
                 </div>
 
-                <!-- Suivi chronologique de la commande -->
                 ${timelineHtml}
 
                 <div class="order-actions">
@@ -178,18 +198,13 @@ document.addEventListener('DOMContentLoaded', () => {
                         </button>
                     ` : ''}
 
-                    ${estTerminee ? `
-                        <button type="button" class="btn-avis-order" data-id="${cmd.id}">
-                            ★ Laisser un avis
-                        </button>
-                    ` : ''}
+                    ${actionAvisHtml}
                 </div>
             `;
 
             container.appendChild(card);
         });
 
-        // Écouteurs d'annulation
         document.querySelectorAll('.btn-cancel-order').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const cmdId = e.target.getAttribute('data-id');
@@ -199,7 +214,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Écouteurs de dépôt d'avis
         document.querySelectorAll('.btn-avis-order').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const cmdId = e.target.getAttribute('data-id');
@@ -417,9 +431,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     const data = await res.json();
 
                     if (res.ok && data.statut === 'succes') {
+                        marquerCommandeCommeNotee(cmdId);
                         alert(`Merci pour votre retour ! Votre avis (${note}/5) a été transmis à l'équipe Vite & Gourmand et sera publié après validation.`);
                         if (modal) modal.style.display = 'none';
                         formAvis.reset();
+                    } else if (res.status === 409) {
+                        marquerCommandeCommeNotee(cmdId);
+                        alert(data.message || 'Vous avez déjà déposé un avis pour cette commande.');
+                        if (modal) modal.style.display = 'none';
                     } else {
                         alert('Erreur : ' + (data.message || 'Impossible d\'enregistrer votre avis.'));
                     }
