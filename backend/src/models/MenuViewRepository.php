@@ -138,7 +138,7 @@ class MenuViewRepository
                 ['id' => 1, 'titre' => 'Menu Festif du Réveillon', 'vues' => 54],
                 ['id' => 2, 'titre' => 'Menu Printanier Pascal', 'vues' => 38],
                 ['id' => 3, 'titre' => 'Découverte Terroir Végétal', 'vues' => 29],
-                ['id' => 4, 'titre' => 'Buffet Champêtre & Terroir', 'vues' => 17]
+                ['id' => 4, 'titre' => 'Buffet Réception & Cocktails', 'vues' => 17]
             ];
 
             foreach ($seedMenus as $item) {
@@ -182,7 +182,7 @@ class MenuViewRepository
             ],
             [
                 'menu_id' => 4,
-                'titre'   => 'Buffet Champêtre & Terroir',
+                'titre'   => 'Buffet Réception & Cocktails',
                 'nb_vues' => 17
             ]
         ];

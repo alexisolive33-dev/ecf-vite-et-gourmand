@@ -63,6 +63,21 @@ class MenuController
     public function popularite(): void
     {
         $stats = $this->mongoRepo->getStatistiquesPopularite();
+        $menus = $this->menuModel->findAllActive();
+
+        // Synchronisation des libellés depuis le référentiel SQL (MariaDB/TiDB)
+        $titresSql = [];
+        foreach ($menus as $m) {
+            $titresSql[(int)$m['id']] = (string)$m['titre'];
+        }
+
+        foreach ($stats as &$stat) {
+            $id = (int)($stat['menu_id'] ?? 0);
+            if (isset($titresSql[$id])) {
+                $stat['titre'] = $titresSql[$id];
+            }
+        }
+        unset($stat);
 
         http_response_code(200);
         echo json_encode([
