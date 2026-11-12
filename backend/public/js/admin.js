@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Contrôle d'accès côté client (tolérance sessionStorage et localStorage)
+    // 1. Contrôle d'accès côté client
     const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
     const userRaw = sessionStorage.getItem('vg_user') || localStorage.getItem('user_profile') || localStorage.getItem('user');
 
@@ -20,24 +20,30 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Vérification stricte du rôle (Admin José ou Employé)
+    // Vérification stricte du rôle (Admin ou Employé)
     const role = (user.role || '').toLowerCase().trim();
     if (role !== 'admin' && role !== 'employe') {
-        alert("Accès réservé à l'équipe Vite & Gourmand (Julie & José).");
+        alert("Accès réservé à l'équipe Vite & Gourmand.");
         window.location.href = '/compte.html';
         return;
     }
 
-    // Synchronisation automatique des sessions
     if (!sessionStorage.getItem('vg_user')) {
         sessionStorage.setItem('vg_user', JSON.stringify(user));
     }
 
-    // Affichage utilisateur
+    // Affichage utilisateur & adaptation visuelle selon le rôle
     const userDisplay = document.getElementById('user-display');
     if (userDisplay) {
         const roleAffiche = user.role ? user.role.toUpperCase() : 'ADMIN';
         userDisplay.textContent = `👤 ${user.prenom || 'José'} ${user.nom || 'Gourmand'} (${roleAffiche})`;
+    }
+
+    if (role === 'employe') {
+        const pageTitle = document.querySelector('h1');
+        if (pageTitle) pageTitle.textContent = 'Espace Collaborateur — Commandes & Avis';
+        const tagline = document.querySelector('.brand-tagline');
+        if (tagline) tagline.textContent = 'Espace Équipe • Vite & Gourmand';
     }
 
     // Déconnexion propre
@@ -55,6 +61,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const statsContainer = document.getElementById('stats-container');
     const tableBody = document.getElementById('orders-table-body');
+    const avisTableBody = document.getElementById('avis-table-body');
+
+    function escapeHtml(str) {
+        return String(str || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
 
     // 2. Charger les statistiques MongoDB
     if (statsContainer) {
@@ -67,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         const card = document.createElement('div');
                         card.className = 'stat-card-box';
                         card.innerHTML = `
-                            <h4>${stat.titre || 'Menu'}</h4>
+                            <h4>${escapeHtml(stat.titre || 'Menu')}</h4>
                             <div class="stat-card-number">${stat.nb_vues || 0} <span>vues</span></div>
                         `;
                         statsContainer.appendChild(card);
@@ -118,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const idCommande = cmd.id || cmd.commande_id;
             const numeroCommande = cmd.numero_commande || (`CMD-${idCommande}`);
 
-            // 1. Date formatée à la française : JJ/MM/AAAA à HHhMM
             const rawDate = cmd.date_livraison_souhaitee || cmd.date_livraison;
             let dateLivraison = '-';
             if (rawDate && rawDate !== '-') {
@@ -131,7 +145,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     : rawDate;
             }
 
-            // 2. Harmonisation de la ville (Casse propre) et arrondi des kilomètres
             const rawVille = cmd.ville_livraison || cmd.ville || 'Bordeaux';
             const ville = rawVille
                 .toLowerCase()
@@ -140,8 +153,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 .join(' ');
             
             const distanceKm = Math.round(parseFloat(cmd.distance_km || cmd.distance || 0));
-
-            // 3. Montant total formaté avec virgule
             const totalTtc = parseFloat(cmd.total_ttc || 0).toFixed(2).replace('.', ',');
 
             let articleStr = '-';
@@ -154,14 +165,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const rawStatut = (cmd.statut || 'en_attente').toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
             tr.innerHTML = `
-                <td><strong>${numeroCommande}</strong></td>
+                <td><strong>${escapeHtml(numeroCommande)}</strong></td>
                 <td>
-                    <div>${prenom} ${nom}</div>
-                    <small style="color: var(--color-text-muted);">${email}</small>
+                    <div>${escapeHtml(prenom)} ${escapeHtml(nom)}</div>
+                    <small style="color: var(--color-text-muted);">${escapeHtml(email)}</small>
                 </td>
                 <td>${dateLivraison}</td>
-                <td>${ville} <small>(${distanceKm} km)</small></td>
-                <td>${articleStr}</td>
+                <td>${escapeHtml(ville)} <small>(${distanceKm} km)</small></td>
+                <td>${escapeHtml(articleStr)}</td>
                 <td><strong>${totalTtc} €</strong></td>
                 <td>
                     <select class="status-select" data-id="${idCommande}" style="padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px;">
@@ -177,7 +188,6 @@ document.addEventListener('DOMContentLoaded', () => {
             tableBody.appendChild(tr);
         });
 
-        // 4. Écouteur sur le changement de statut
         document.querySelectorAll('.status-select').forEach(select => {
             select.addEventListener('change', async (e) => {
                 const cmdId = e.target.getAttribute('data-id');
@@ -206,6 +216,119 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error('Erreur changement statut:', err);
                     alert('Erreur de connexion au serveur.');
                     chargerCommandes();
+                }
+            });
+        });
+    }
+
+    // 4. Charger et modérer les avis clients
+    chargerAvis();
+
+    function chargerAvis() {
+        if (!avisTableBody) return;
+
+        fetch('/api/admin/avis', {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        })
+            .then(res => res.json())
+            .then(res => {
+                const listeAvis = res.avis || res.donnees || [];
+                if (res.statut === 'succes' && listeAvis.length > 0) {
+                    renderAvis(listeAvis);
+                } else {
+                    avisTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucun avis client enregistré pour le moment.</td></tr>';
+                }
+            })
+            .catch(err => {
+                console.error('Erreur chargement avis:', err);
+                avisTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des avis.</td></tr>';
+            });
+    }
+
+    function renderAvis(listeAvis) {
+        avisTableBody.innerHTML = '';
+
+        listeAvis.forEach(avis => {
+            const tr = document.createElement('tr');
+
+            const rawDate = avis.date_creation || avis.created_at;
+            let dateAffiche = '-';
+            if (rawDate) {
+                const d = new Date(rawDate.replace(' ', 'T'));
+                dateAffiche = !isNaN(d.getTime()) ? d.toLocaleDateString('fr-FR') : rawDate;
+            }
+
+            const auteur = `${avis.prenom || avis.client_prenom || 'Client'} ${avis.nom || avis.client_nom || ''}`.trim();
+            const note = Math.min(5, Math.max(1, parseInt(avis.note) || 5));
+            const etoiles = '★'.repeat(note) + '☆'.repeat(5 - note);
+
+            const estValide = avis.est_valide == 1 || avis.est_valide === true || String(avis.statut || '').toLowerCase().includes('valid');
+
+            tr.innerHTML = `
+                <td>${dateAffiche}</td>
+                <td><strong>${escapeHtml(auteur)}</strong></td>
+                <td style="color: #B8860B; font-size: 14px; letter-spacing: 1px;">${etoiles}</td>
+                <td style="max-width: 380px;">« ${escapeHtml(avis.commentaire)} »</td>
+                <td>
+                    <span class="avis-badge ${estValide ? 'publie' : 'en-attente'}">
+                        ${estValide ? 'Publié' : 'En attente'}
+                    </span>
+                </td>
+                <td>
+                    ${!estValide ? `<button type="button" class="btn-avis-approve" data-id="${avis.id}">✓ Valider</button>` : ''}
+                    <button type="button" class="btn-avis-reject" data-id="${avis.id}">✕ Supprimer</button>
+                </td>
+            `;
+
+            avisTableBody.appendChild(tr);
+        });
+
+        // Action : Valider un avis
+        document.querySelectorAll('.btn-avis-approve').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const avisId = e.target.getAttribute('data-id');
+                try {
+                    const res = await fetch(`/api/admin/avis/${avisId}/valider`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                        },
+                        body: JSON.stringify({ est_valide: 1, statut: 'valide' })
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.statut === 'succes') {
+                        chargerAvis();
+                    } else {
+                        alert('Erreur : ' + (data.message || 'Impossible de valider cet avis.'));
+                    }
+                } catch (err) {
+                    console.error('Erreur validation avis:', err);
+                    alert('Erreur réseau lors de la validation.');
+                }
+            });
+        });
+
+        // Action : Supprimer / refuser un avis
+        document.querySelectorAll('.btn-avis-reject').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const avisId = e.target.getAttribute('data-id');
+                if (!confirm('Supprimer définitivement cet avis ?')) return;
+
+                try {
+                    const res = await fetch(`/api/admin/avis/${avisId}`, {
+                        method: 'DELETE',
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.statut === 'succes') {
+                        chargerAvis();
+                    } else {
+                        alert('Erreur : ' + (data.message || 'Impossible de supprimer cet avis.'));
+                    }
+                } catch (err) {
+                    console.error('Erreur suppression avis:', err);
+                    alert('Erreur réseau lors de la suppression.');
                 }
             });
         });

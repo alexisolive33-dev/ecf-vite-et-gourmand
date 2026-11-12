@@ -86,15 +86,15 @@
         </div>
     </section>
 
-    <!-- Section Avis Clients Réels -->
+    <!-- Section Avis Clients Réels (Alimentée dynamiquement via GET /api/avis) -->
     <section class="page-section container-1296">
         <div class="section-center-header">
             <span class="surtitre-or">ILS NOUS FONT CONFIANCE</span>
             <h2>Ce que nos clients disent de nous</h2>
         </div>
 
-        <div class="testimonials-grid">
-            <!-- Avis 1 -->
+        <div class="testimonials-grid" id="testimonials-grid">
+            <!-- Avis 1 (Fallback par défaut) -->
             <div class="testimonial-card">
                 <div class="stars-rating">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
                 <p class="testimonial-text">
@@ -103,7 +103,7 @@
                 <div class="testimonial-author">Mathieu D. — Mariage à Mérignac (Septembre 2026).</div>
             </div>
 
-            <!-- Avis 2 -->
+            <!-- Avis 2 (Fallback par défaut) -->
             <div class="testimonial-card">
                 <div class="stars-rating">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
                 <p class="testimonial-text">
@@ -112,7 +112,7 @@
                 <div class="testimonial-author">Cabinet Aquitaine Conseil — Événement pro (Octobre 2026).</div>
             </div>
 
-            <!-- Avis 3 -->
+            <!-- Avis 3 (Fallback par défaut) -->
             <div class="testimonial-card">
                 <div class="stars-rating">&#9733;&#9733;&#9733;&#9733;&#9733;</div>
                 <p class="testimonial-text">
@@ -163,5 +163,48 @@
 
     <!-- Synchronisation dynamique de la navbar -->
     <script src="/js/navbar.js"></script>
+
+    <!-- Chargement dynamique des avis clients validés par l'équipe -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            function escapeHtml(str) {
+                return String(str || '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            fetch('/api/avis')
+                .then(res => res.json())
+                .then(res => {
+                    const liste = res.avis || res.donnees || [];
+                    const grid = document.getElementById('testimonials-grid');
+
+                    if (res.statut === 'succes' && liste.length > 0 && grid) {
+                        grid.innerHTML = liste.slice(0, 6).map(avis => {
+                            const note = Math.min(5, Math.max(1, parseInt(avis.note) || 5));
+                            const stars = '&#9733;'.repeat(note) + '&#9734;'.repeat(5 - note);
+                            const prenom = avis.prenom || avis.client_prenom || 'Client';
+                            const nomInitiale = (avis.nom || avis.client_nom || '').trim().charAt(0);
+                            const auteur = escapeHtml(`${prenom}${nomInitiale ? ' ' + nomInitiale + '.' : ''}`);
+                            const commentaire = escapeHtml(avis.commentaire);
+                            const contexte = avis.menu_titre ? escapeHtml(avis.menu_titre) : 'Client vérifié Vite & Gourmand';
+
+                            return `
+                                <div class="testimonial-card">
+                                    <div class="stars-rating">${stars}</div>
+                                    <p class="testimonial-text">« ${commentaire} »</p>
+                                    <div class="testimonial-author">${auteur} — ${contexte}.</div>
+                                </div>
+                            `;
+                        }).join('');
+                    }
+                })
+                .catch(() => {
+                    /* Conserve les avis par défaut en cas d'indisponibilité de l'API */
+                });
+        });
+    </script>
 </body>
 </html>

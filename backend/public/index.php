@@ -17,14 +17,17 @@ require_once __DIR__ . '/../src/models/MenuModel.php';
 require_once __DIR__ . '/../src/models/CommandeModel.php';
 require_once __DIR__ . '/../src/models/UserModel.php';
 require_once __DIR__ . '/../src/models/MenuViewRepository.php';
+require_once __DIR__ . '/../src/models/AvisModel.php';
 require_once __DIR__ . '/../src/services/OrderCalculatorService.php';
 require_once __DIR__ . '/../src/controllers/MenuController.php';
 require_once __DIR__ . '/../src/controllers/CommandeController.php';
 require_once __DIR__ . '/../src/controllers/AuthController.php';
+require_once __DIR__ . '/../src/controllers/AvisController.php';
 
 use App\Controllers\MenuController;
 use App\Controllers\CommandeController;
 use App\Controllers\AuthController;
+use App\Controllers\AvisController;
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
@@ -78,6 +81,33 @@ if ($uri === '/api/admin/commandes' && $method === 'GET') {
 // Back-Office Admin - Mise à jour du statut d'une commande
 if (preg_match('#^/api/admin/commandes/([0-9]+)/statut$#', $uri, $matches) && $method === 'PUT') {
     (new CommandeController())->updateStatut((int)$matches[1]);
+    exit;
+}
+
+// Avis Clients - Public & Dépôt Client
+if ($uri === '/api/avis' && $method === 'GET') {
+    (new AvisController())->index();
+    exit;
+}
+
+if ($uri === '/api/avis' && $method === 'POST') {
+    (new AvisController())->creer();
+    exit;
+}
+
+// Avis Clients - Modération Back-Office (Admin & Employé)
+if ($uri === '/api/admin/avis' && $method === 'GET') {
+    (new AvisController())->adminIndex();
+    exit;
+}
+
+if (preg_match('#^/api/admin/avis/([0-9]+)/valider$#', $uri, $matches) && $method === 'PUT') {
+    (new AvisController())->valider((int)$matches[1]);
+    exit;
+}
+
+if (preg_match('#^/api/admin/avis/([0-9]+)$#', $uri, $matches) && $method === 'DELETE') {
+    (new AvisController())->supprimer((int)$matches[1]);
     exit;
 }
 

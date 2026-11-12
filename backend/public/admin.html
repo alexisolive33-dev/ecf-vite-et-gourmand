@@ -94,7 +94,7 @@
             margin-left: 4px;
         }
 
-        /* Tableau de Gestion des Commandes */
+        /* Tableaux Back-Office */
         .orders-table-wrapper {
             background: var(--color-bg-card);
             border: 1px solid var(--color-border);
@@ -178,6 +178,56 @@
             color: var(--badge-danger-text);
             border-color: var(--badge-danger-border);
         }
+
+        /* Badges et actions modération avis */
+        .avis-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: var(--radius-pill);
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .avis-badge.publie {
+            background-color: #DCFCE7;
+            color: #166534;
+        }
+
+        .avis-badge.en-attente {
+            background-color: #FEF3C7;
+            color: #92400E;
+        }
+
+        .btn-avis-approve {
+            background-color: #166534;
+            color: #FFFFFF;
+            border: none;
+            padding: 6px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            margin-right: 6px;
+        }
+
+        .btn-avis-approve:hover {
+            background-color: #14532D;
+        }
+
+        .btn-avis-reject {
+            background-color: #FEF2F2;
+            color: #991B1B;
+            border: 1px solid #FECACA;
+            padding: 5px 10px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .btn-avis-reject:hover {
+            background-color: #FEE2E2;
+        }
     </style>
 </head>
 <body>
@@ -207,7 +257,7 @@
             <span class="surtitre-or">PILOTAGE EN TEMPS RÉEL</span>
             <h1>Tableau de Bord Julie & José</h1>
             <p style="color: var(--color-text-muted); font-size: 14px; margin-top: 4px;">
-                Supervision des réservations clients, mise à jour des statuts de livraison et métriques de consultation.
+                Supervision des réservations clients, mise à jour des statuts de livraison, modération des avis et métriques de consultation.
             </p>
         </div>
 
@@ -250,16 +300,44 @@
             </table>
         </div>
 
+        <!-- Section 3 : Modération des Avis Clients -->
+        <div style="margin-top: 48px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+            <h3 style="font-size: 18px;">Modération des Avis Clients</h3>
+            <span style="font-size: 12px; color: var(--color-text-muted);">Approbation avant publication sur la vitrine</span>
+        </div>
+
+        <div class="orders-table-wrapper">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Client</th>
+                        <th>Note</th>
+                        <th>Commentaire</th>
+                        <th>Statut</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="avis-table-body">
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 32px;">
+                            Chargement des avis clients en cours...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
     </main>
 
     <!-- Footer Back-Office -->
     <footer class="site-footer" style="padding: 24px 0; margin-top: 60px;">
         <div class="container-1296" style="text-align: center; font-size: 12px; color: #9CA3AF;">
-            &copy; 2026 Vite & Gourmand — Système de gestion traiteur réservé à Julie & José. Tous droits réservés.
+            &copy; 2026 Vite & Gourmand — Système de gestion traiteur réservé à l'équipe. Tous droits réservés.
         </div>
     </footer>
 
     <!-- Script de pilotage -->
-    <script src="/js/admin.js"></script>
+    <script src="/js/admin.js?v=3"></script>
 </body>
 </html>
