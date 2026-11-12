@@ -14,29 +14,45 @@ class MenuViewRepository
 {
     private string $namespace;
     private string $dbName;
+    private bool $connected = false;
+    private ?string $lastError = null;
 
     public function __construct()
     {
         try {
-            $this->dbName = MongoDatabase::getDbName() ?: 'vite_et_gourmand';
+            $this->dbName = MongoDatabase::getDbName() ?: 'vite_et_gourmand_analytics';
         } catch (Throwable $e) {
-            $this->dbName = 'vite_et_gourmand';
+            $this->dbName = 'vite_et_gourmand_analytics';
         }
         $this->namespace = $this->dbName . '.menu_views';
     }
 
+    public function isConnected(): bool
+    {
+        return $this->connected;
+    }
+
+    public function getLastError(): ?string
+    {
+        return $this->lastError;
+    }
+
     /**
-     * Enregistre un événement de consultation de fiche dans la collection MongoDB
+     * Enregistre un événement de consultation de fiche dans MongoDB Atlas
      */
     public function enregistrerVue(int $menuId, string $titreMenu): bool
     {
         if (!class_exists('\\MongoDB\\Driver\\Manager')) {
+            $this->lastError = 'Extension PHP ext-mongodb non installée.';
+            $this->incrementFallbackCounter($menuId, $titreMenu);
             return false;
         }
 
         try {
             $manager = MongoDatabase::getManager();
             if (!$manager) {
+                $this->lastError = 'Manager MongoDB nul (vérifiez MONGODB_URI sur Render).';
+                $this->incrementFallbackCounter($menuId, $titreMenu);
                 return false;
             }
 
@@ -50,50 +66,53 @@ class MenuViewRepository
             ]);
 
             $manager->executeBulkWrite($this->namespace, $bulk);
+            $this->connected = true;
             return true;
         } catch (Throwable $e) {
+            $this->lastError = $e->getMessage();
             error_log("Erreur MongoDB enregistrerVue: " . $e->getMessage());
+            $this->incrementFallbackCounter($menuId, $titreMenu);
             return false;
         }
     }
 
     /**
-     * Récupère les statistiques de popularité par menu via le pipeline d'agrégation NoSQL
+     * Récupère les statistiques de popularité via le pipeline d'agrégation NoSQL ($group & $sort)
      */
     public function getStatistiquesPopularite(): array
     {
-        // 1. Si l'extension PHP MongoDB n'est pas disponible dans l'environnement
         if (!class_exists('\\MongoDB\\Driver\\Manager')) {
+            $this->lastError = 'Extension PHP ext-mongodb non installée.';
             return $this->getFallbackStats();
         }
 
         try {
             $manager = MongoDatabase::getManager();
             if (!$manager) {
+                $this->lastError = 'Manager MongoDB nul (vérifiez MONGODB_URI sur Render).';
                 return $this->getFallbackStats();
             }
 
-            // Exécution du pipeline d'agrégation officiel MongoDB
             $stats = $this->executerAggregation($manager);
 
-            // 2. Si la collection est encore vierge, on injecte un historique initial
             if (empty($stats)) {
                 $this->autoSeedMongo($manager);
                 $stats = $this->executerAggregation($manager);
             }
 
-            return !empty($stats) ? $stats : $this->getFallbackStats();
+            if (!empty($stats)) {
+                $this->connected = true;
+                return $stats;
+            }
 
+            return $this->getFallbackStats();
         } catch (Throwable $e) {
-            // Tolérance aux pannes réseau / MongoDB Atlas
+            $this->lastError = $e->getMessage();
             error_log("Erreur MongoDB getStatistiquesPopularite: " . $e->getMessage());
             return $this->getFallbackStats();
         }
     }
 
-    /**
-     * Exécute le pipeline d'agrégation NoSQL officiel ($group & $sort)
-     */
     private function executerAggregation(Manager $manager): array
     {
         $command = new Command([
@@ -118,7 +137,7 @@ class MenuViewRepository
 
         foreach ($cursor as $doc) {
             $stats[] = [
-                'menu_id' => $doc->_id,
+                'menu_id' => (int)$doc->_id,
                 'titre'   => $doc->titre ?? 'Formule Traiteur',
                 'nb_vues' => (int)($doc->nb_vues ?? 0)
             ];
@@ -127,9 +146,6 @@ class MenuViewRepository
         return $stats;
     }
 
-    /**
-     * Génère des consultations initiales dans MongoDB si la base est vide
-     */
     private function autoSeedMongo(Manager $manager): void
     {
         try {
@@ -137,8 +153,8 @@ class MenuViewRepository
             $seedMenus = [
                 ['id' => 1, 'titre' => 'Menu Festif du Réveillon', 'vues' => 54],
                 ['id' => 2, 'titre' => 'Menu Printanier Pascal', 'vues' => 38],
-                ['id' => 3, 'titre' => 'Découverte Terroir Végétal', 'vues' => 29],
-                ['id' => 4, 'titre' => 'Buffet Réception & Cocktails', 'vues' => 17]
+                ['id' => 3, 'titre' => 'Buffet Réception & Cocktails', 'vues' => 29],
+                ['id' => 4, 'titre' => 'Découverte Terroir Végétal', 'vues' => 17]
             ];
 
             foreach ($seedMenus as $item) {
@@ -148,7 +164,7 @@ class MenuViewRepository
                         'titre'             => (string)$item['titre'],
                         'date_consultation' => new UTCDateTime(),
                         'ip_visiteur'       => '127.0.0.1',
-                        'user_agent'        => 'Consultation Visiteur (Simulation)'
+                        'user_agent'        => 'Consultation Visiteur (Initialisation)'
                     ]);
                 }
             }
@@ -159,32 +175,53 @@ class MenuViewRepository
         }
     }
 
-    /**
-     * Données de secours réalistes en cas de panne de connexion au cluster Atlas
-     */
+    private function getFallbackFilePath(): string
+    {
+        return rtrim(sys_get_temp_dir(), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . 'vg_menu_views_fallback.json';
+    }
+
+    private function incrementFallbackCounter(int $menuId, string $titre): void
+    {
+        $stats = $this->getFallbackStats();
+        $found = false;
+
+        foreach ($stats as &$item) {
+            if ((int)$item['menu_id'] === $menuId) {
+                $item['nb_vues'] = (int)$item['nb_vues'] + 1;
+                $item['titre'] = $titre;
+                $found = true;
+                break;
+            }
+        }
+        unset($item);
+
+        if (!$found) {
+            $stats[] = [
+                'menu_id' => $menuId,
+                'titre'   => $titre,
+                'nb_vues' => 1
+            ];
+        }
+
+        usort($stats, fn($a, $b) => $b['nb_vues'] <=> $a['nb_vues']);
+        @file_put_contents($this->getFallbackFilePath(), json_encode($stats));
+    }
+
     private function getFallbackStats(): array
     {
+        $file = $this->getFallbackFilePath();
+        if (is_file($file)) {
+            $decoded = json_decode((string)@file_get_contents($file), true);
+            if (is_array($decoded) && !empty($decoded)) {
+                return $decoded;
+            }
+        }
+
         return [
-            [
-                'menu_id' => 1,
-                'titre'   => 'Menu Festif du Réveillon',
-                'nb_vues' => 54
-            ],
-            [
-                'menu_id' => 2,
-                'titre'   => 'Menu Printanier Pascal',
-                'nb_vues' => 38
-            ],
-            [
-                'menu_id' => 3,
-                'titre'   => 'Découverte Terroir Végétal',
-                'nb_vues' => 29
-            ],
-            [
-                'menu_id' => 4,
-                'titre'   => 'Buffet Réception & Cocktails',
-                'nb_vues' => 17
-            ]
+            ['menu_id' => 1, 'titre' => 'Menu Festif du Réveillon', 'nb_vues' => 54],
+            ['menu_id' => 2, 'titre' => 'Menu Printanier Pascal', 'nb_vues' => 38],
+            ['menu_id' => 3, 'titre' => 'Buffet Réception & Cocktails', 'nb_vues' => 29],
+            ['menu_id' => 4, 'titre' => 'Découverte Terroir Végétal', 'nb_vues' => 17]
         ];
     }
 }
