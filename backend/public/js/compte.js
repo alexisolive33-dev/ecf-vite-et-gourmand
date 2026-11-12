@@ -46,75 +46,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initialiserProfilForm(user, currentUserId);
     chargerMesCommandes(currentUserId);
     initialiserGestionAvis();
-    
-    // ==========================================
-    // GESTION DU DÉPÔT D'AVIS SUR COMMANDE LIVRÉE
-    // ==========================================
-    function initialiserGestionAvis() {
-        const modal = document.getElementById('modal-avis-container');
-        const btnClose = document.getElementById('btn-close-avis');
-        const formAvis = document.getElementById('form-avis');
-
-        if (btnClose && modal) {
-            btnClose.addEventListener('click', () => {
-                modal.style.display = 'none';
-            });
-        }
-
-        if (formAvis) {
-            formAvis.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                const cmdId = parseInt(document.getElementById('avis-commande-id').value);
-                const note = parseInt(document.getElementById('avis-note').value);
-                const commentaire = document.getElementById('avis-commentaire').value.trim();
-                const submitBtn = formAvis.querySelector('button[type="submit"]');
-
-                if (!commentaire) {
-                    alert('Veuillez rédiger un commentaire.');
-                    return;
-                }
-
-                if (submitBtn) {
-                    submitBtn.disabled = true;
-                    submitBtn.textContent = 'Envoi en cours...';
-                }
-
-                try {
-                    const res = await fetch('/api/avis', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${authToken}`
-                        },
-                        body: JSON.stringify({
-                            commande_id: cmdId,
-                            utilisateur_id: currentUserId,
-                            note: note,
-                            commentaire: commentaire
-                        })
-                    });
-
-                    const data = await res.json();
-
-                    if (res.ok && data.statut === 'succes') {
-                        alert(`Merci pour votre retour ! Votre avis (${note}/5) a été transmis à l'équipe Vite & Gourmand et sera publié après validation.`);
-                        if (modal) modal.style.display = 'none';
-                        formAvis.reset();
-                    } else {
-                        alert('Erreur : ' + (data.message || 'Impossible d\'enregistrer votre avis.'));
-                    }
-                } catch (err) {
-                    console.error('Erreur envoi avis:', err);
-                    alert('Erreur de communication avec le serveur.');
-                } finally {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.textContent = 'Envoyer mon avis';
-                    }
-                }
-            });
-        }
-    }
 
     // ==========================================
     // GESTION DES COMMANDES (HISTORIQUE & SUIVI)
@@ -451,14 +382,56 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (formAvis) {
-            formAvis.addEventListener('submit', (e) => {
+            formAvis.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const cmdId = document.getElementById('avis-commande-id').value;
-                const note = document.getElementById('avis-note').value;
+                const cmdId = parseInt(document.getElementById('avis-commande-id').value);
+                const note = parseInt(document.getElementById('avis-note').value);
+                const commentaire = document.getElementById('avis-commentaire').value.trim();
+                const submitBtn = formAvis.querySelector('button[type="submit"]');
 
-                alert(`Merci pour votre retour ! Votre note de ${note}/5 étoiles a bien été transmise à Julie & José.`);
-                if (modal) modal.style.display = 'none';
-                formAvis.reset();
+                if (!commentaire) {
+                    alert('Veuillez rédiger un commentaire.');
+                    return;
+                }
+
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Envoi en cours...';
+                }
+
+                try {
+                    const res = await fetch('/api/avis', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            commande_id: cmdId,
+                            utilisateur_id: currentUserId,
+                            note: note,
+                            commentaire: commentaire
+                        })
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok && data.statut === 'succes') {
+                        alert(`Merci pour votre retour ! Votre avis (${note}/5) a été transmis à l'équipe Vite & Gourmand et sera publié après validation.`);
+                        if (modal) modal.style.display = 'none';
+                        formAvis.reset();
+                    } else {
+                        alert('Erreur : ' + (data.message || 'Impossible d\'enregistrer votre avis.'));
+                    }
+                } catch (err) {
+                    console.error('Erreur envoi avis:', err);
+                    alert('Erreur de communication avec le serveur.');
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Envoyer mon avis';
+                    }
+                }
             });
         }
     }
