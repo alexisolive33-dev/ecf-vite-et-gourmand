@@ -62,6 +62,59 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Auto-complétion des communes via le code postal (API Gouv)
+    const regCpInput = document.getElementById('reg-cp');
+    const regVilleSelect = document.getElementById('reg-ville');
+
+    if (regCpInput && regVilleSelect) {
+        regCpInput.addEventListener('input', async (e) => {
+            const cp = e.target.value.trim();
+
+            if (!/^[0-9]{5}$/.test(cp)) {
+                regVilleSelect.innerHTML = '<option value="">Entrez un code postal (5 chiffres)...</option>';
+                return;
+            }
+
+            regVilleSelect.innerHTML = '<option value="">Recherche des communes...</option>';
+            regVilleSelect.disabled = true;
+
+            try {
+                const res = await fetch(`https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom`);
+                const communes = await res.json();
+
+                if (!communes || communes.length === 0) {
+                    regVilleSelect.innerHTML = '<option value="">Aucune commune trouvée</option>';
+                    regVilleSelect.disabled = false;
+                    return;
+                }
+
+                regVilleSelect.innerHTML = '';
+                if (communes.length > 1) {
+                    const defaultOpt = document.createElement('option');
+                    defaultOpt.value = '';
+                    defaultOpt.textContent = `-- Choisissez votre commune (${communes.length}) --`;
+                    regVilleSelect.appendChild(defaultOpt);
+                }
+
+                communes.forEach(c => {
+                    const opt = document.createElement('option');
+                    opt.value = c.nom;
+                    opt.textContent = c.nom;
+                    regVilleSelect.appendChild(opt);
+                });
+
+                if (communes.length === 1) {
+                    regVilleSelect.value = communes[0].nom;
+                }
+            } catch (err) {
+                console.error('Erreur chargement communes:', err);
+                regVilleSelect.innerHTML = '<option value="">Erreur réseau</option>';
+            } finally {
+                regVilleSelect.disabled = false;
+            }
+        });
+    }
+
     // 1. Authentification / Connexion
     if (formLogin) {
         formLogin.addEventListener('submit', async (e) => {
@@ -176,6 +229,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 showAlert(data.message, 'success');
                 formRegister.reset();
+                if (regVilleSelect) {
+                    regVilleSelect.innerHTML = '<option value="">Entrez un code postal (5 chiffres)...</option>';
+                }
 
                 // Pré-remplit l'email dans l'onglet de connexion pour faciliter l'accès
                 const loginEmailInput = document.getElementById('login-email');
