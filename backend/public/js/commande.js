@@ -10,19 +10,17 @@ document.addEventListener('DOMContentLoaded', () => {
         user = null;
     }
 
-    // Mise à jour de la navbar (gère l'état connecté ou non)
     majNavbar(user);
 
-    // L'identifiant utilisateur est null si non connecté
     const currentUserId = user ? (user.id || user.utilisateur_id) : null;
-
     const urlParams = new URLSearchParams(window.location.search);
     const menuId = parseInt(urlParams.get('id')) || 1;
 
     let currentMenu = null;
-    let nbConvives = 12;
+    let nbConvives = 6;
     let currentSimulation = null;
     let listeCommunesTrouvees = [];
+    let simAbortController = null;
 
     // Atelier Julie & José (12 Cours de l'Intendance, Bordeaux)
     const ATELIER_GPS = { lat: 44.8427, lon: -0.5755 };
@@ -63,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const valTotalTtc = document.getElementById('val-total-ttc');
     const btnValider = document.getElementById('btn-valider-commande');
 
-    // 2. Auto-remplissage sécurisé (uniquement si le client est connecté)
+    // 2. Auto-remplissage sécurisé si connecté
     if (user) {
         if (inputNom && user.nom) inputNom.value = user.nom;
         if (inputPrenom && user.prenom) inputPrenom.value = user.prenom;
@@ -73,11 +71,21 @@ document.addEventListener('DOMContentLoaded', () => {
         if (inputCp && user.code_postal) inputCp.value = user.code_postal;
     }
 
+    // Date minimale = J + 7 jours ; date par défaut = J + 8 jours à 19h00
     const dateMin = new Date();
     dateMin.setDate(dateMin.getDate() + 7);
+    const dateDefaut = new Date();
+    dateDefaut.setDate(dateDefaut.getDate() + 8);
+    dateDefaut.setHours(19, 0, 0, 0);
+
+    function toLocalInputIso(d) {
+        const pad = (n) => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
     if (inputDate) {
-        inputDate.min = dateMin.toISOString().slice(0, 16);
-        if (!inputDate.value) inputDate.value = "2026-12-24T19:00";
+        inputDate.min = toLocalInputIso(dateMin);
+        if (!inputDate.value) inputDate.value = toLocalInputIso(dateDefaut);
     }
 
     // 3. Charger le détail du menu
@@ -87,15 +95,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (res.statut === 'succes') {
                 currentMenu = res.donnees;
                 renderMenuDetails(currentMenu);
-                if (nbConvives < parseInt(currentMenu.convives_min)) {
-                    nbConvives = parseInt(currentMenu.convives_min);
-                }
-                
-                // Si un code postal est présent (profil connecté ou valeur saisie), charger les communes
+
+                // Initialisation systématique au minimum exact du menu (sans remise par défaut)
+                nbConvives = parseInt(currentMenu.convives_min) || 6;
+                recalculerDevis();
+
                 if (inputCp && inputCp.value.trim().length === 5) {
                     chargerVillesParCp(inputCp.value.trim(), user ? user.ville : '');
-                } else {
-                    recalculerDevis();
                 }
             }
         })
@@ -152,7 +158,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnMinus) {
         btnMinus.addEventListener('click', () => {
             if (!currentMenu) return;
-            if (nbConvives > parseInt(currentMenu.convives_min)) {
+            const min = parseInt(currentMenu.convives_min) || 1;
+            if (nbConvives > min) {
                 nbConvives--;
                 recalculerDevis();
             }
@@ -161,21 +168,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnPlus) {
         btnPlus.addEventListener('click', () => {
+            if (!currentMenu) return;
             nbConvives++;
             recalculerDevis();
         });
     }
 
     // -------------------------------------------------------------
-    // CHARGEMENT DU MENU DÉROULANT DES VILLES VIA LE CODE POSTAL
+    // CHARGEMENT DES COMMUNES & CALCUL KILOMÉTRIQUE VIA CODE POSTAL
     // -------------------------------------------------------------
     if (inputCp) {
         inputCp.addEventListener('input', (e) => {
             const cp = e.target.value.trim();
             if (cp.length === 5 && /^[0-9]{5}$/.test(cp)) {
                 chargerVillesParCp(cp);
-            } else if (cp.length < 5) {
-                selectVille.innerHTML = '<option value="">Entrez un code postal (5 chiffres)...</option>';
+            } else {
+                listeCommunesTrouvees = [];
+                if (selectVille) {
+                    selectVille.innerHTML = '<option value="">Entrez un code postal (5 chiffres)...</option>';
+                }
                 if (inputDistance) inputDistance.value = 0;
                 recalculerDevis();
             }
@@ -183,6 +194,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function chargerVillesParCp(codePostal, villeSelectionnee = '') {
+        if (!selectVille) return;
         selectVille.innerHTML = '<option value="">Recherche des communes en cours...</option>';
         selectVille.disabled = true;
 
@@ -193,6 +205,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!communes || communes.length === 0) {
                 selectVille.innerHTML = '<option value="">Aucune commune trouvée pour ce code postal</option>';
                 selectVille.disabled = false;
+                if (inputDistance) inputDistance.value = 0;
+                recalculerDevis();
                 return;
             }
 
@@ -222,28 +236,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
             selectVille.disabled = false;
 
-            if (communes.length === 1) {
-                selectVille.value = communes[0].nom;
-                appliquerDistanceDepuisCommune(communes[0]);
-            } else if (indexSelectionne >= 0) {
+            if (indexSelectionne >= 0) {
+                selectVille.value = communes[indexSelectionne].nom;
                 appliquerDistanceDepuisCommune(communes[indexSelectionne]);
+            } else {
+                recalculerDevis();
             }
 
         } catch (err) {
             console.error("Erreur API Communes :", err);
             selectVille.innerHTML = '<option value="">Erreur de recherche (réseau)</option>';
             selectVille.disabled = false;
+            recalculerDevis();
         }
     }
 
     if (selectVille) {
         selectVille.addEventListener('change', () => {
             const nomChoisi = selectVille.value;
-            if (!nomChoisi) return;
+            if (!nomChoisi) {
+                if (inputDistance) inputDistance.value = 0;
+                recalculerDevis();
+                return;
+            }
 
             const communeObj = listeCommunesTrouvees.find(c => c.nom === nomChoisi);
             if (communeObj) {
                 appliquerDistanceDepuisCommune(communeObj);
+            } else {
+                recalculerDevis();
             }
         });
     }
@@ -277,72 +298,125 @@ document.addEventListener('DOMContentLoaded', () => {
         if (inputDistance) {
             inputDistance.value = km;
             inputDistance.style.backgroundColor = '#DCFCE7';
-            setTimeout(() => { inputDistance.style.backgroundColor = ''; }, 1000);
+            setTimeout(() => { inputDistance.style.backgroundColor = '#F3F4F6'; }, 900);
         }
         recalculerDevis();
     }
 
     if (inputDate) inputDate.addEventListener('change', recalculerDevis);
 
-    // 5. Calcul Devis en direct (Accessible à tous sans connexion requise)
+    // 5. Calcul Devis instantané + synchronisation API
+    function formatEuro(val) {
+        return Number(val || 0).toFixed(2).replace('.', ',') + ' €';
+    }
+
+    function afficherDevisDansUi(sim) {
+        if (sim.remise_appliquee && bannerRemise) {
+            bannerRemise.style.display = 'flex';
+            const remiseUnit = sim.prix_unitaire_ttc * 0.10;
+            if (remiseParPersonne) {
+                remiseParPersonne.textContent = `-${remiseUnit.toFixed(2).replace('.', ',')} €`;
+            }
+        } else if (bannerRemise) {
+            bannerRemise.style.display = 'none';
+        }
+
+        const distanceVal = Number(sim.distance_km || 0);
+        const villeVal = String(sim.ville_livraison || 'Bordeaux');
+        const estBordeaux = villeVal.toLowerCase().includes('bordeaux') && distanceVal === 0;
+
+        if (!estBordeaux && distanceVal > 0) {
+            if (rowLivraisonDesc) rowLivraisonDesc.textContent = `Livraison hors Bordeaux (${distanceVal} km) :`;
+            if (calculLivraisonDetail) calculLivraisonDetail.textContent = `Forfait 5,00 € + (${distanceVal} km × 0,59 €)`;
+        } else {
+            if (rowLivraisonDesc) rowLivraisonDesc.textContent = `Livraison Bordeaux métropole :`;
+            if (calculLivraisonDetail) calculLivraisonDetail.textContent = `Livraison offerte intra-muros`;
+        }
+
+        if (valFraisLivraison) valFraisLivraison.textContent = formatEuro(sim.frais_livraison);
+        if (valSousTotalRepas) valSousTotalRepas.textContent = formatEuro(sim.sous_total_net);
+        if (valFraisLivraisonTotal) valFraisLivraisonTotal.textContent = formatEuro(sim.frais_livraison);
+        if (valTotalTtc) valTotalTtc.textContent = formatEuro(sim.total_ttc);
+    }
+
     function recalculerDevis() {
         if (!currentMenu) return;
+
+        const minConvives = parseInt(currentMenu.convives_min) || 6;
+        if (nbConvives < minConvives) nbConvives = minConvives;
+
         if (displayNbConvives) displayNbConvives.textContent = `${nbConvives} convives`;
+        if (btnMinus) btnMinus.disabled = (nbConvives <= minConvives);
 
+        const prixUnit = parseFloat(currentMenu.prix_unitaire_ttc) || 0;
         const distanceVal = inputDistance ? (parseFloat(inputDistance.value) || 0) : 0;
-        const villeVal = selectVille ? (selectVille.value.trim() || 'Bordeaux') : 'Bordeaux';
-        const dateVal = (inputDate && inputDate.value) ? inputDate.value.replace('T', ' ') + ':00' : '2026-12-24 19:00:00';
+        const villeVal = (selectVille && selectVille.value.trim()) ? selectVille.value.trim() : 'Bordeaux';
+        const dateVal = (inputDate && inputDate.value) ? inputDate.value.replace('T', ' ') + ':00' : toLocalInputIso(dateDefaut).replace('T', ' ') + ':00';
 
-        const payload = {
+        // 5a. Calcul immédiat côté client (0 latence, jamais bloqué)
+        const remiseAppliquee = nbConvives >= (minConvives + 5);
+        const sousTotalBrut = Math.round(prixUnit * nbConvives * 100) / 100;
+        const montantRemise = remiseAppliquee ? Math.round(sousTotalBrut * 0.10 * 100) / 100 : 0;
+        const sousTotalNet = Math.round((sousTotalBrut - montantRemise) * 100) / 100;
+
+        const estBordeaux = villeVal.toLowerCase().includes('bordeaux') && distanceVal === 0;
+        const fraisLivraison = estBordeaux
+            ? 0
+            : (distanceVal > 0 ? Math.round((5.00 + distanceVal * 0.59) * 100) / 100 : 0);
+
+        const totalTtc = Math.round((sousTotalNet + fraisLivraison) * 100) / 100;
+
+        currentSimulation = {
             menu_id: currentMenu.id,
+            menu_titre: currentMenu.titre,
             nb_convives: nbConvives,
+            prix_unitaire_ttc: prixUnit,
+            sous_total_brut: sousTotalBrut,
+            remise_appliquee: remiseAppliquee,
+            montant_remise: montantRemise,
+            sous_total_net: sousTotalNet,
             distance_km: distanceVal,
-            date_livraison: dateVal,
-            ville: villeVal
+            frais_livraison: fraisLivraison,
+            total_ttc: totalTtc,
+            ville_livraison: villeVal,
+            date_livraison: dateVal
         };
 
-        const headers = { 'Content-Type': 'application/json' };
-        if (authToken) {
-            headers['Authorization'] = `Bearer ${authToken}`;
+        afficherDevisDansUi(currentSimulation);
+
+        // 5b. Vérification asynchrone avec le serveur PHP
+        if (simAbortController) {
+            simAbortController.abort();
         }
+        simAbortController = new AbortController();
+
+        const headers = { 'Content-Type': 'application/json' };
+        if (authToken) headers['Authorization'] = `Bearer ${authToken}`;
 
         fetch('/api/commandes/simuler', {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify(payload)
+            signal: simAbortController.signal,
+            body: JSON.stringify({
+                menu_id: currentMenu.id,
+                nb_convives: nbConvives,
+                distance_km: distanceVal,
+                date_livraison: dateVal,
+                ville: villeVal
+            })
         })
         .then(res => res.json())
         .then(res => {
-            if (res.statut === 'succes') {
-                const sim = res.simulation;
-                currentSimulation = sim;
-
-                if (sim.remise_appliquee && bannerRemise) {
-                    bannerRemise.style.display = 'flex';
-                    const remiseUnit = sim.prix_unitaire_ttc * 0.10;
-                    if (remiseParPersonne) {
-                        remiseParPersonne.textContent = `-${remiseUnit.toFixed(2).replace('.', ',')} € / pers.`;
-                    }
-                } else if (bannerRemise) {
-                    bannerRemise.style.display = 'none';
-                }
-
-                const estBordeaux = villeVal.toLowerCase().includes('bordeaux') && distanceVal === 0;
-                if (!estBordeaux && distanceVal > 0) {
-                    if (rowLivraisonDesc) rowLivraisonDesc.textContent = `Livraison hors Bordeaux (${distanceVal} km) :`;
-                    if (calculLivraisonDetail) calculLivraisonDetail.textContent = `Forfait 5,00 € + (${distanceVal} km × 0,59 €)`;
-                } else {
-                    if (rowLivraisonDesc) rowLivraisonDesc.textContent = `Livraison Bordeaux métropole :`;
-                    if (calculLivraisonDetail) calculLivraisonDetail.textContent = `Livraison offerte intra-muros`;
-                }
-
-                if (valFraisLivraison) valFraisLivraison.textContent = `${sim.frais_livraison.toFixed(2).replace('.', ',')} €`;
-                if (valSousTotalRepas) valSousTotalRepas.textContent = `${sim.sous_total_net.toFixed(2).replace('.', ',')} €`;
-                if (valFraisLivraisonTotal) valFraisLivraisonTotal.textContent = `${sim.frais_livraison.toFixed(2).replace('.', ',')} €`;
-                if (valTotalTtc) valTotalTtc.textContent = `${sim.total_ttc.toFixed(2).replace('.', ',')} €`;
+            if (res.statut === 'succes' && res.simulation) {
+                currentSimulation = res.simulation;
+                afficherDevisDansUi(currentSimulation);
             }
         })
-        .catch(err => console.error('Erreur calcul simulation:', err));
+        .catch(err => {
+            if (err.name !== 'AbortError') {
+                console.warn('Synchronisation simulation serveur:', err);
+            }
+        });
     }
 
     // 6. Validation finale : authentification exigée uniquement ici
@@ -350,10 +424,14 @@ document.addEventListener('DOMContentLoaded', () => {
         btnValider.addEventListener('click', () => {
             if (!currentSimulation) return;
 
-            // Redirection vers connexion si visiteur non authentifié
             if (!authToken || !user) {
                 alert("Veuillez vous connecter ou créer un compte pour confirmer votre commande.");
                 window.location.href = `/login.html?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+                return;
+            }
+
+            if (!inputCp || inputCp.value.trim().length !== 5 || !selectVille || !selectVille.value) {
+                alert("Veuillez renseigner un code postal valide et sélectionner votre commune de livraison.");
                 return;
             }
 
@@ -366,7 +444,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 distance_km: currentSimulation.distance_km,
                 date_livraison: currentSimulation.date_livraison,
                 ville: currentSimulation.ville_livraison,
-                code_postal: inputCp ? inputCp.value.trim() : '33000',
+                code_postal: inputCp.value.trim(),
                 adresse_livraison: inputAdresse ? (inputAdresse.value.trim() || user.adresse_postale || '14 Avenue du Château') : '14 Avenue du Château',
                 utilisateur_id: currentUserId
             };
