@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use DateTime;
+use Throwable;
 
 class OrderCalculatorService
 {
@@ -17,6 +18,7 @@ class OrderCalculatorService
     public function calculer(array $menu, int $nbConvives, float $distanceKm, string $dateLivraisonStr, string $ville): array
     {
         $erreurs = [];
+        $distanceKm = max(0.0, $distanceKm);
 
         // 1. Contrôle du nombre minimum de convives
         if ($nbConvives < $menu['convives_min']) {
@@ -24,13 +26,22 @@ class OrderCalculatorService
         }
 
         // 2. Contrôle du délai de préavis (7 jours minimum)
-        $dateActuelle = new DateTime();
-        $dateLivraison = new DateTime($dateLivraisonStr);
-        $diffJours = $dateActuelle->diff($dateLivraison)->days;
-        $estDansLeFutur = $dateLivraison > $dateActuelle;
+        $dateLivraison = null;
+        if (trim($dateLivraisonStr) === '') {
+            $erreurs[] = "La date de livraison souhaitée est obligatoire.";
+        } else {
+            try {
+                $dateActuelle = new DateTime();
+                $dateLivraison = new DateTime($dateLivraisonStr);
+                $diffJours = $dateActuelle->diff($dateLivraison)->days;
+                $estDansLeFutur = $dateLivraison > $dateActuelle;
 
-        if (!$estDansLeFutur || $diffJours < $menu['delai_min_jours']) {
-            $erreurs[] = "Un délai de prévenance de {$menu['delai_min_jours']} jours minimum est obligatoire pour la livraison.";
+                if (!$estDansLeFutur || $diffJours < $menu['delai_min_jours']) {
+                    $erreurs[] = "Un délai de prévenance de {$menu['delai_min_jours']} jours minimum est obligatoire pour la livraison.";
+                }
+            } catch (Throwable $e) {
+                $erreurs[] = "Le format de la date de livraison est invalide.";
+            }
         }
 
         if (!empty($erreurs)) {

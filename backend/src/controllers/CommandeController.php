@@ -5,7 +5,7 @@ namespace App\Controllers;
 use App\Models\MenuModel;
 use App\Models\CommandeModel;
 use App\Services\OrderCalculatorService;
-use App\Config\Database;
+use App\Security\AuthGuard;
 use Exception;
 use PDO;
 
@@ -97,7 +97,7 @@ class CommandeController
         }
 
         try {
-            $succes = $this->commandeModel->updateStatut($id, (string)$donnees['statut']);
+            $this->commandeModel->updateStatut($id, (string)$donnees['statut']);
 
             http_response_code(200);
             echo json_encode([
@@ -237,7 +237,6 @@ class CommandeController
         try {
             $pdo = $this->getPdo();
 
-            // Jointure via ligne_commande avec sélection de nb_convives et date_livraison_souhaitee
             $stmt = $pdo->prepare("
                 SELECT c.*, 
                        COALESCE(lc.nb_convives, 0) AS nb_convives,
@@ -279,6 +278,10 @@ class CommandeController
         $donnees = json_decode(file_get_contents('php://input'), true) ?? [];
         $userId = (int)($donnees['utilisateur_id'] ?? 0);
 
+        $authUser = AuthGuard::getAuthenticatedUser();
+        $effectiveUserId = $authUser ? (int)$authUser['id'] : $userId;
+        $isStaff = $authUser && in_array($authUser['role'], ['admin', 'employe'], true);
+
         try {
             $pdo = $this->getPdo();
 
@@ -292,7 +295,7 @@ class CommandeController
                 return;
             }
 
-            if ($userId > 0 && (int)$cmd['utilisateur_id'] !== $userId) {
+            if (!$isStaff && ($effectiveUserId <= 0 || (int)$cmd['utilisateur_id'] !== $effectiveUserId)) {
                 http_response_code(403);
                 echo json_encode(['statut' => 'erreur', 'message' => 'Action non autorisée sur cette commande.'], JSON_UNESCAPED_UNICODE);
                 return;
@@ -315,7 +318,7 @@ class CommandeController
                 return;
             }
 
-            // 1. Mise à jour vers le statut normalisé 'annulee' (sans accent) attendu par CommandeModel
+            // 1. Mise à jour vers le statut normalisé 'annulee'
             $update = $pdo->prepare("UPDATE commande SET statut = 'annulee' WHERE id = :id");
             $update->execute([':id' => $id]);
 
@@ -362,6 +365,13 @@ class CommandeController
         }
 
         $id = (int)$donnees['id'];
+        $authUser = AuthGuard::getAuthenticatedUser();
+        if ($authUser && $authUser['role'] === 'client' && (int)$authUser['id'] !== $id) {
+            http_response_code(403);
+            echo json_encode(['statut' => 'erreur', 'message' => 'Modification non autorisée sur ce profil.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
         $nom = trim($donnees['nom'] ?? '');
         $prenom = trim($donnees['prenom'] ?? '');
         $telephone = trim($donnees['telephone'] ?? '');
@@ -396,6 +406,15 @@ class CommandeController
             if ($codePostal !== '') { $champs[] = "code_postal = :cp"; $params[':cp'] = $codePostal; }
 
             if (!empty($donnees['nouveau_mot_de_passe'])) {
+                $regexSecurite = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$/';
+                if (!preg_match($regexSecurite, (string)$donnees['nouveau_mot_de_passe'])) {
+                    http_response_code(422);
+                    echo json_encode([
+                        'statut' => 'erreur',
+                        'message' => 'Le nouveau mot de passe doit contenir au minimum 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.'
+                    ], JSON_UNESCAPED_UNICODE);
+                    return;
+                }
                 $champs[] = "mot_de_passe = :pwd";
                 $params[':pwd'] = password_hash($donnees['nouveau_mot_de_passe'], PASSWORD_BCRYPT);
             }
