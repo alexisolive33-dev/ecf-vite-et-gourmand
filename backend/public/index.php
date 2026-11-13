@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 // Chargement des dépendances
 require_once __DIR__ . '/../src/config/Database.php';
 require_once __DIR__ . '/../src/config/MongoDatabase.php';
+require_once __DIR__ . '/../src/security/AuthGuard.php';
 require_once __DIR__ . '/../src/models/MenuModel.php';
 require_once __DIR__ . '/../src/models/CommandeModel.php';
 require_once __DIR__ . '/../src/models/UserModel.php';
@@ -26,6 +27,7 @@ require_once __DIR__ . '/../src/controllers/AuthController.php';
 require_once __DIR__ . '/../src/controllers/AvisController.php';
 require_once __DIR__ . '/../src/controllers/ContactController.php';
 
+use App\Security\AuthGuard;
 use App\Controllers\MenuController;
 use App\Controllers\CommandeController;
 use App\Controllers\AuthController;
@@ -34,6 +36,11 @@ use App\Controllers\ContactController;
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
+
+// Verrouillage centralisé de toutes les routes d'administration (Admin & Employé uniquement)
+if (str_starts_with($uri, '/api/admin/')) {
+    AuthGuard::requireStaff();
+}
 
 // Accueil API
 if ($uri === '/') {
