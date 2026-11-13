@@ -5,6 +5,7 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `contact_message`;
 DROP TABLE IF EXISTS `avis`;
 DROP TABLE IF EXISTS `ligne_commande`;
 DROP TABLE IF EXISTS `commande`;
@@ -169,4 +170,19 @@ CREATE TABLE `avis` (
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT `chk_avis_note` CHECK (`note` BETWEEN 1 AND 5),
     INDEX `idx_avis_est_valide` (`est_valide`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- 10. Table : contact_message (Demandes de devis & renseignements)
+-- -----------------------------------------------------------------------------
+CREATE TABLE `contact_message` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `nom_complet` VARCHAR(150) NOT NULL,
+    `email` VARCHAR(150) NOT NULL,
+    `telephone` VARCHAR(30) NULL,
+    `type_evenement` VARCHAR(80) NOT NULL DEFAULT 'particulier',
+    `message` TEXT NOT NULL,
+    `statut` VARCHAR(30) NOT NULL DEFAULT 'nouveau',
+    `date_envoi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    INDEX `idx_contact_statut` (`statut`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

@@ -5,6 +5,7 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+TRUNCATE TABLE `contact_message`;
 TRUNCATE TABLE `avis`;
 TRUNCATE TABLE `ligne_commande`;
 TRUNCATE TABLE `commande`;
@@ -41,16 +42,16 @@ INSERT INTO `allergene` (`id`, `code`, `nom`) VALUES
 -- Mot de passe de test : Password123!
 -- Hash Bcrypt : $2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS
 -- -----------------------------------------------------------------------------
-INSERT INTO `utilisateur` (`id`, `nom`, `prenom`, `email`, `mot_de_passe`, `telephone`, `role`, `date_creation`) VALUES
+INSERT INTO `utilisateur` (`id`, `nom`, `prenom`, `email`, `mot_de_passe`, `telephone`, `adresse_postale`, `code_postal`, `ville`, `role`, `date_creation`) VALUES
 -- Administrateurs (Julie & José)
-(1, 'Gourmand', 'Julie', 'julie@vitegourmand.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0556000001', 'admin', '2026-01-10 09:00:00'),
-(2, 'Gourmand', 'José',  'jose@vitegourmand.fr',  '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0556000002', 'admin', '2026-01-10 09:00:00'),
+(1, 'Gourmand', 'Julie', 'julie@vitegourmand.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0556000001', '12 Cours de l\'Intendance', '33000', 'Bordeaux', 'admin', '2026-01-10 09:00:00'),
+(2, 'Gourmand', 'José',  'jose@vitegourmand.fr',  '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0556000002', '12 Cours de l\'Intendance', '33000', 'Bordeaux', 'admin', '2026-01-10 09:00:00'),
 -- Employé cuisine & livraison
-(3, 'Lemoine',  'Thomas', 'thomas.livraison@vitegourmand.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0601020304', 'employe', '2026-02-01 08:30:00'),
+(3, 'Lemoine',  'Thomas', 'thomas.livraison@vitegourmand.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0601020304', '8 Rue Sainte-Catherine', '33000', 'Bordeaux', 'employe', '2026-02-01 08:30:00'),
 -- Clients du portfolio
-(4, 'Dubois',   'Mathieu', 'mathieu.dubois@email.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0611223344', 'client', '2026-08-15 14:20:00'),
-(5, 'Aquitaine Conseil', 'Cabinet', 'contact@aquitaine-conseil.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0557889900', 'client', '2026-09-01 10:15:00'),
-(6, 'Martin',   'Claire',  'claire.martin@email.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0699887766', 'client', '2026-10-05 16:40:00');
+(4, 'Dubois',   'Mathieu', 'mathieu.dubois@email.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0611223344', 'Allée des Châteaux', '33700', 'Mérignac', 'client', '2026-08-15 14:20:00'),
+(5, 'Aquitaine Conseil', 'Cabinet', 'contact@aquitaine-conseil.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0557889900', '45 Quai des Chartrons', '33000', 'Bordeaux', 'client', '2026-09-01 10:15:00'),
+(6, 'Martin',   'Claire',  'claire.martin@email.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0699887766', '15 Avenue de l\'Abreuvoir', '33700', 'Mérignac', 'client', '2026-10-05 16:40:00');
 
 -- -----------------------------------------------------------------------------
 -- 3. Les 4 Menus événementiels du catalogue Figma
@@ -154,13 +155,19 @@ INSERT INTO `commande` (
     '45 Quai des Chartrons', 'Bordeaux', 0.0, 
     0.00, 825.00, 82.50, 742.50, 'livree'),
 
--- Commande 3 : Simulation exacte issue des maquettes Desktop et Mobile 03
+-- Commande 3 : Prestation livrée le 01/11/2026 (cohérente avec l'avis du 03/11/2026)
 -- 12 convives x 48,00 € = 576,00 € | Remise -10% = 57,60 € | Repas net = 518,40 €
 -- Livraison Mérignac 15 km : 5,00 € + (15 x 0,59 €) = 13,85 € | Total TTC = 532,25 €
-(3, 'CMD-2026-1224', 6, 
-    '2026-11-03 14:00:00', '2026-12-24 19:00:00', 
+(3, 'CMD-2026-1101', 6, 
+    '2026-10-20 14:00:00', '2026-11-01 19:00:00', 
     '15 Avenue de l\'Abreuvoir', 'Mérignac', 15.0, 
-    13.85, 576.00, 57.60, 532.25, 'en_attente');
+    13.85, 576.00, 57.60, 532.25, 'livree'),
+
+-- Commande 4 : Commande à venir en attente de validation back-office
+(4, 'CMD-2026-1224', 4, 
+    '2026-11-12 10:30:00', '2026-12-24 19:00:00', 
+    'Domaine des Vignes, Allée des Châteaux', 'Mérignac', 12.0, 
+    12.08, 576.00, 57.60, 530.48, 'en_attente');
 
 -- -----------------------------------------------------------------------------
 -- 8. Lignes de commandes associées
@@ -168,7 +175,8 @@ INSERT INTO `commande` (
 INSERT INTO `ligne_commande` (`id`, `commande_id`, `menu_id`, `nb_convives`, `prix_unitaire_facture`, `taux_remise_applique`) VALUES
 (1, 1, 3, 30, 55.00, 0.10),
 (2, 2, 3, 15, 55.00, 0.10),
-(3, 3, 1, 12, 48.00, 0.10);
+(3, 3, 1, 12, 48.00, 0.10),
+(4, 4, 1, 12, 48.00, 0.10);
 
 -- -----------------------------------------------------------------------------
 -- 9. Avis clients vérifiés et modération
@@ -186,5 +194,16 @@ INSERT INTO `avis` (`id`, `utilisateur_id`, `commande_id`, `note`, `commentaire`
 
 -- Avis 3 : avis en attente de validation (test du module de modération admin)
 (3, 6, 3, 4, 
-    'Prise de commande claire et détaillée, hâte de déguster le menu au réveillon !', 
+    'Prestation raffinée et ponctuelle pour notre dîner entre amis, présentation soignée et produits très frais !', 
     FALSE, '2026-11-03 14:10:00');
+
+-- -----------------------------------------------------------------------------
+-- 10. Messages & demandes de devis (Formulaire de contact)
+-- -----------------------------------------------------------------------------
+INSERT INTO `contact_message` (`id`, `nom_complet`, `email`, `telephone`, `type_evenement`, `message`, `statut`, `date_envoi`) VALUES
+(1, 'Sophie Bernard', 'sophie.bernard@email.fr', '06 45 78 12 30', 'Événement Privé / Mariage',
+    'Bonjour, nous organisons un cocktail dînatoire pour 45 personnes à Pessac le 12 juin prochain. Pourriez-vous nous proposer une variante sans fruits à coque ?',
+    'nouveau', '2026-11-12 15:20:00'),
+(2, 'Marc Lefèvre', 'm.lefevre@bordeaux-tech.fr', '05 56 44 11 22', 'Buffet / Cocktail Entreprise',
+    'Demande de devis pour un petit-déjeuner et buffet déjeunatoire de 25 collaborateurs dans nos locaux aux Chartrons.',
+    'traite', '2026-11-08 09:45:00');
