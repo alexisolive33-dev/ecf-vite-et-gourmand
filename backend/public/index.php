@@ -18,16 +18,19 @@ require_once __DIR__ . '/../src/models/CommandeModel.php';
 require_once __DIR__ . '/../src/models/UserModel.php';
 require_once __DIR__ . '/../src/models/MenuViewRepository.php';
 require_once __DIR__ . '/../src/models/AvisModel.php';
+require_once __DIR__ . '/../src/models/ContactModel.php';
 require_once __DIR__ . '/../src/services/OrderCalculatorService.php';
 require_once __DIR__ . '/../src/controllers/MenuController.php';
 require_once __DIR__ . '/../src/controllers/CommandeController.php';
 require_once __DIR__ . '/../src/controllers/AuthController.php';
 require_once __DIR__ . '/../src/controllers/AvisController.php';
+require_once __DIR__ . '/../src/controllers/ContactController.php';
 
 use App\Controllers\MenuController;
 use App\Controllers\CommandeController;
 use App\Controllers\AuthController;
 use App\Controllers\AvisController;
+use App\Controllers\ContactController;
 
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 $method = $_SERVER['REQUEST_METHOD'];
@@ -113,6 +116,27 @@ if (preg_match('#^/api/admin/avis/([0-9]+)/valider$#', $uri, $matches) && $metho
 
 if (preg_match('#^/api/admin/avis/([0-9]+)$#', $uri, $matches) && $method === 'DELETE') {
     (new AvisController())->supprimer((int)$matches[1]);
+    exit;
+}
+
+// Formulaire de Contact - Public & Back-Office
+if ($uri === '/api/contact' && $method === 'POST') {
+    (new ContactController())->creer();
+    exit;
+}
+
+if ($uri === '/api/admin/contacts' && $method === 'GET') {
+    (new ContactController())->adminIndex();
+    exit;
+}
+
+if (preg_match('#^/api/admin/contacts/([0-9]+)/traiter$#', $uri, $matches) && $method === 'PUT') {
+    (new ContactController())->marquerTraite((int)$matches[1]);
+    exit;
+}
+
+if (preg_match('#^/api/admin/contacts/([0-9]+)$#', $uri, $matches) && $method === 'DELETE') {
+    (new ContactController())->supprimer((int)$matches[1]);
     exit;
 }
 

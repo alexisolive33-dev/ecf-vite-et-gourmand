@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (role === 'employe') {
         const pageTitle = document.querySelector('h1');
-        if (pageTitle) pageTitle.textContent = 'Espace Collaborateur — Commandes & Avis';
+        if (pageTitle) pageTitle.textContent = 'Espace Collaborateur — Commandes, Avis & Messages';
         const tagline = document.querySelector('.brand-tagline');
         if (tagline) tagline.textContent = 'Espace Équipe • Vite & Gourmand';
     }
@@ -62,6 +62,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const statsContainer = document.getElementById('stats-container');
     const tableBody = document.getElementById('orders-table-body');
     const avisTableBody = document.getElementById('avis-table-body');
+    const contactsTableBody = document.getElementById('contacts-table-body');
 
     function escapeHtml(str) {
         return String(str || '')
@@ -328,6 +329,117 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (err) {
                     console.error('Erreur suppression avis:', err);
+                    alert('Erreur réseau lors de la suppression.');
+                }
+            });
+        });
+    }
+
+    // 5. Charger et traiter les messages de contact
+    chargerContacts();
+
+    function chargerContacts() {
+        if (!contactsTableBody) return;
+
+        fetch('/api/admin/contacts', {
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        })
+            .then(res => res.json())
+            .then(res => {
+                const listeContacts = res.contacts || res.donnees || [];
+                if (res.statut === 'succes' && listeContacts.length > 0) {
+                    renderContacts(listeContacts);
+                } else {
+                    contactsTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucun message ou demande de devis reçu pour le moment.</td></tr>';
+                }
+            })
+            .catch(err => {
+                console.error('Erreur chargement messages contact:', err);
+                contactsTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des messages.</td></tr>';
+            });
+    }
+
+    function renderContacts(listeContacts) {
+        contactsTableBody.innerHTML = '';
+
+        listeContacts.forEach(msg => {
+            const tr = document.createElement('tr');
+
+            const rawDate = msg.date_envoi || msg.created_at;
+            let dateAffiche = '-';
+            if (rawDate) {
+                const d = new Date(rawDate.replace(' ', 'T'));
+                dateAffiche = !isNaN(d.getTime())
+                    ? d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : rawDate;
+            }
+
+            const estTraite = String(msg.statut || '').toLowerCase() === 'traite';
+
+            tr.innerHTML = `
+                <td style="white-space: nowrap;">${dateAffiche}</td>
+                <td>
+                    <div><strong>${escapeHtml(msg.nom_complet)}</strong></div>
+                    <div style="font-size: 12px;"><a href="mailto:${escapeHtml(msg.email)}" style="color: var(--color-primary);">${escapeHtml(msg.email)}</a></div>
+                    ${msg.telephone ? `<small style="color: var(--color-text-muted);">${escapeHtml(msg.telephone)}</small>` : ''}
+                </td>
+                <td><span style="font-size: 12px; font-weight: 600;">${escapeHtml(msg.type_evenement || 'Demande')}</span></td>
+                <td style="max-width: 360px; white-space: pre-line;">${escapeHtml(msg.message)}</td>
+                <td>
+                    <span class="avis-badge ${estTraite ? 'publie' : 'en-attente'}">
+                        ${estTraite ? 'Traité' : 'Nouveau'}
+                    </span>
+                </td>
+                <td style="white-space: nowrap;">
+                    ${!estTraite ? `<button type="button" class="btn-avis-approve btn-contact-treat" data-id="${msg.id}">✓ Traité</button>` : ''}
+                    <button type="button" class="btn-avis-reject btn-contact-delete" data-id="${msg.id}">✕ Supprimer</button>
+                </td>
+            `;
+
+            contactsTableBody.appendChild(tr);
+        });
+
+        // Action : Marquer une demande de contact comme traitée
+        document.querySelectorAll('.btn-contact-treat').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const contactId = e.target.getAttribute('data-id');
+                try {
+                    const res = await fetch(`/api/admin/contacts/${contactId}/traiter`, {
+                        method: 'PUT',
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.statut === 'succes') {
+                        chargerContacts();
+                    } else {
+                        alert('Erreur : ' + (data.message || 'Impossible de mettre à jour ce message.'));
+                    }
+                } catch (err) {
+                    console.error('Erreur traitement message:', err);
+                    alert('Erreur réseau lors de la mise à jour.');
+                }
+            });
+        });
+
+        // Action : Supprimer un message de contact
+        document.querySelectorAll('.btn-contact-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const contactId = e.target.getAttribute('data-id');
+                if (!confirm('Supprimer définitivement ce message ?')) return;
+
+                try {
+                    const res = await fetch(`/api/admin/contacts/${contactId}`, {
+                        method: 'DELETE',
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.statut === 'succes') {
+                        chargerContacts();
+                    } else {
+                        alert('Erreur : ' + (data.message || 'Impossible de supprimer ce message.'));
+                    }
+                } catch (err) {
+                    console.error('Erreur suppression message:', err);
                     alert('Erreur réseau lors de la suppression.');
                 }
             });

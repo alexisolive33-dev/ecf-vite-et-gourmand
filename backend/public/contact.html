@@ -154,6 +154,8 @@
                     ✅ Merci ! Votre message a été transmis à Julie & José. Nous vous recontacterons très rapidement.
                 </div>
 
+                <div id="contact-alert-error" style="display: none; margin-bottom: 20px; padding: 12px 14px; background: #FEE2E2; border: 1px solid #FCA5A5; color: #991B1B; border-radius: 6px; font-size: 13px;"></div>
+
                 <form id="contact-form">
                     <div class="contact-row-2">
                         <div class="contact-field-group">
@@ -174,10 +176,10 @@
                         <div class="contact-field-group">
                             <label for="contact-type">Type d'événement</label>
                             <select id="contact-type" class="contact-select">
-                                <option value="particulier">Événement Privé / Mariage</option>
-                                <option value="entreprise">Buffet / Cocktail Entreprise</option>
-                                <option value="fete">Repas de Fête de fin d'année</option>
-                                <option value="autre">Autre demande sur-mesure</option>
+                                <option value="Événement Privé / Mariage">Événement Privé / Mariage</option>
+                                <option value="Buffet / Cocktail Entreprise">Buffet / Cocktail Entreprise</option>
+                                <option value="Repas de Fête de fin d'année">Repas de Fête de fin d'année</option>
+                                <option value="Autre demande sur-mesure">Autre demande sur-mesure</option>
                             </select>
                         </div>
                     </div>
@@ -275,10 +277,10 @@
         </div>
     </footer>
 
-    <!-- 1. Script Navbar global (gestion du profil, lien cliquable et déconnexion) -->
+    <!-- 1. Script Navbar global -->
     <script src="/js/navbar.js"></script>
 
-    <!-- 2. Auto-remplissage et soumission du formulaire de contact -->
+    <!-- 2. Auto-remplissage et envoi API du formulaire de contact -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const userProfileRaw = localStorage.getItem('user_profile') || localStorage.getItem('user');
@@ -301,19 +303,52 @@
 
             const contactForm = document.getElementById('contact-form');
             if (contactForm) {
-                contactForm.addEventListener('submit', (e) => {
+                contactForm.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     const btn = document.getElementById('btn-submit-contact');
+                    const alertSuccess = document.getElementById('contact-alert-success');
+                    const alertError = document.getElementById('contact-alert-error');
+
+                    if (alertSuccess) alertSuccess.style.display = 'none';
+                    if (alertError) alertError.style.display = 'none';
+
                     btn.disabled = true;
                     btn.textContent = 'Envoi en cours...';
 
-                    setTimeout(() => {
-                        const alertBox = document.getElementById('contact-alert-success');
-                        if (alertBox) alertBox.style.display = 'block';
-                        contactForm.reset();
+                    const payload = {
+                        nom_complet: document.getElementById('contact-nom').value.trim(),
+                        email: document.getElementById('contact-email').value.trim(),
+                        telephone: document.getElementById('contact-telephone').value.trim(),
+                        type_evenement: document.getElementById('contact-type').value,
+                        message: document.getElementById('contact-message').value.trim()
+                    };
+
+                    try {
+                        const res = await fetch('/api/contact', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        const data = await res.json();
+
+                        if (res.ok && data.statut === 'succes') {
+                            if (alertSuccess) alertSuccess.style.display = 'block';
+                            contactForm.reset();
+                        } else {
+                            if (alertError) {
+                                alertError.textContent = data.message || 'Impossible d\'envoyer votre message.';
+                                alertError.style.display = 'block';
+                            }
+                        }
+                    } catch (err) {
+                        if (alertError) {
+                            alertError.textContent = 'Erreur de communication avec le serveur.';
+                            alertError.style.display = 'block';
+                        }
+                    } finally {
                         btn.disabled = false;
                         btn.textContent = 'Envoyer ma demande →';
-                    }, 600);
+                    }
                 });
             }
         });
