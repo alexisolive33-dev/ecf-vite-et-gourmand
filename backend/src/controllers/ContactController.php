@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\ContactModel;
+use App\Security\AuthGuard;
 use Throwable;
 
 class ContactController
@@ -15,7 +16,7 @@ class ContactController
     }
 
     /**
-     * POST /api/contact
+     * POST /api/contact (Public)
      */
     public function creer(): void
     {
@@ -74,6 +75,8 @@ class ContactController
      */
     public function adminIndex(): void
     {
+        AuthGuard::requireStaff();
+
         try {
             $messages = $this->contactModel->getAll();
             echo json_encode([
@@ -94,6 +97,8 @@ class ContactController
      */
     public function marquerTraite(int $id): void
     {
+        AuthGuard::requireStaff();
+
         if ($this->contactModel->marquerTraite($id)) {
             echo json_encode([
                 'statut' => 'succes',
@@ -113,6 +118,8 @@ class ContactController
      */
     public function supprimer(int $id): void
     {
+        AuthGuard::requireStaff();
+
         if ($this->contactModel->supprimer($id)) {
             echo json_encode([
                 'statut' => 'succes',

@@ -3,8 +3,8 @@
 namespace App\Controllers;
 
 use App\Config\Database;
+use App\Security\AuthGuard;
 use PDO;
-use Exception;
 
 class AuthController
 {
@@ -44,7 +44,7 @@ class AuthController
             return;
         }
 
-        $token = bin2hex(random_bytes(32));
+        $token = AuthGuard::generateToken($user);
 
         // Renvoyer l'ensemble des informations pour le pré-remplissage automatique des commandes
         $this->repondreJson(200, 'succes', 'Connexion réussie', [
@@ -84,7 +84,6 @@ class AuthController
         $ville      = trim($data['ville'] ?? '');
         $motDePasse = (string) ($data['mot_de_passe'] ?? '');
 
-        // Validation des présences obligatoires
         if (empty($nom) || empty($prenom) || !$email || empty($telephone) || empty($adresse) || empty($motDePasse)) {
             $this->repondreJson(422, 'erreur', 'Tous les champs marqués sont obligatoires et l\'email doit être valide.');
             return;
@@ -97,7 +96,6 @@ class AuthController
             return;
         }
 
-        // Vérification de l'unicité de l'email
         $verif = $this->db->prepare('SELECT id FROM utilisateur WHERE email = :email LIMIT 1');
         $verif->execute([':email' => $email]);
         if ($verif->fetch()) {
@@ -108,7 +106,7 @@ class AuthController
         // Hachage bcrypt obligatoire
         $hash = password_hash($motDePasse, PASSWORD_BCRYPT);
 
-        // Rôle verrouillé côté serveur sur 'client' (aucune faille d'élévation de privilège possible)
+        // Rôle verrouillé côté serveur sur 'client'
         $insert = $this->db->prepare('
             INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, telephone, adresse_postale, code_postal, ville, role)
             VALUES (:nom, :prenom, :email, :pass, :tel, :adresse, :cp, :ville, :role)
@@ -131,7 +129,6 @@ class AuthController
             return;
         }
 
-        // Envoi automatique de l'email de bienvenue exigé par le sujet
         $this->envoyerMailBienvenue($email, $prenom);
 
         $this->repondreJson(201, 'succes', 'Votre compte a été créé avec succès ! Un e-mail de bienvenue vous a été envoyé.');
@@ -157,7 +154,6 @@ class AuthController
 
         if ($user) {
             $tokenReinit = bin2hex(random_bytes(24));
-            // Simulation d'envoi d'e-mail avec le lien de réinitialisation
             $sujet = 'Réinitialisation de votre mot de passe - Vite & Gourmand';
             $message = "Bonjour {$user['prenom']},\n\nPour réinitialiser votre mot de passe, cliquez sur le lien suivant :\nhttps://vite-gourmand-a0uf.onrender.com/reset-password.html?token={$tokenReinit}\n\nCe lien expire dans 1 heure.";
             @mail($email, $sujet, $message, 'From: contact@vitegourmand.fr');

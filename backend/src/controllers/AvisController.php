@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\AvisModel;
+use App\Security\AuthGuard;
 
 class AvisController
 {
@@ -94,6 +95,8 @@ class AvisController
      */
     public function adminIndex(): void
     {
+        AuthGuard::requireStaff();
+
         try {
             $avis = $this->avisModel->getAllAvis();
             echo json_encode([
@@ -115,6 +118,8 @@ class AvisController
      */
     public function valider(int $id): void
     {
+        AuthGuard::requireStaff();
+
         try {
             $this->avisModel->validerAvis($id);
             echo json_encode([
@@ -135,6 +140,8 @@ class AvisController
      */
     public function supprimer(int $id): void
     {
+        AuthGuard::requireStaff();
+
         try {
             $this->avisModel->supprimerAvis($id);
             echo json_encode([
