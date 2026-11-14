@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (role === 'employe') {
         const pageTitle = document.querySelector('h1');
-        if (pageTitle) pageTitle.textContent = 'Espace Collaborateur — Commandes, Avis & Messages';
+        if (pageTitle) pageTitle.textContent = 'Espace Collaborateur — Menus, Commandes, Avis & Messages';
         const tagline = document.querySelector('.brand-tagline');
         if (tagline) tagline.textContent = 'Espace Équipe • Vite & Gourmand';
     }
@@ -60,9 +60,14 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const statsContainer = document.getElementById('stats-container');
+    const menusTableBody = document.getElementById('menus-table-body');
     const tableBody = document.getElementById('orders-table-body');
     const avisTableBody = document.getElementById('avis-table-body');
     const contactsTableBody = document.getElementById('contacts-table-body');
+
+    let referentielPlats = [];
+    let referentielAllergenes = [];
+    let menusCache = [];
 
     function escapeHtml(str) {
         return String(str || '')
@@ -73,7 +78,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // 2. Charger les statistiques MongoDB
-    if (statsContainer) {
+    chargerStatsMongo();
+
+    function chargerStatsMongo() {
+        if (!statsContainer) return;
         fetch('/api/stats/popularite')
             .then(res => res.json())
             .then(res => {
@@ -92,13 +100,337 @@ document.addEventListener('DOMContentLoaded', () => {
                     statsContainer.innerHTML = '<p style="color: var(--color-text-muted);">Aucune donnée de consultation enregistrée.</p>';
                 }
             })
-            .catch(err => {
-                console.error('Erreur stats MongoDB:', err);
+            .catch(() => {
                 statsContainer.innerHTML = '<p style="color: var(--color-text-muted);">Indicateurs NoSQL temporairement indisponibles.</p>';
             });
     }
 
-    // 3. Charger la liste des commandes SQL
+    // =========================================================================
+    // 3. GESTION & CONFIGURATION DES MENUS ET PLATS (ADMIN & EMPLOYÉ)
+    // =========================================================================
+    const menuEditorPanel = document.getElementById('menu-editor-panel');
+    const menuEditorTitle = document.getElementById('menu-editor-title');
+    const menuForm = document.getElementById('menu-form');
+    const btnOpenMenuForm = document.getElementById('btn-open-menu-form');
+    const btnCancelMenu = document.getElementById('btn-cancel-menu');
+
+    const platEditorPanel = document.getElementById('plat-editor-panel');
+    const platForm = document.getElementById('plat-form');
+    const btnTogglePlatForm = document.getElementById('btn-toggle-plat-form');
+    const btnCancelPlat = document.getElementById('btn-cancel-plat');
+
+    if (btnOpenMenuForm) {
+        btnOpenMenuForm.addEventListener('click', () => {
+            resetMenuForm();
+            menuEditorPanel.style.display = 'block';
+            menuEditorPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        });
+    }
+
+    if (btnCancelMenu) {
+        btnCancelMenu.addEventListener('click', () => {
+            menuEditorPanel.style.display = 'none';
+            resetMenuForm();
+        });
+    }
+
+    if (btnTogglePlatForm) {
+        btnTogglePlatForm.addEventListener('click', () => {
+            platEditorPanel.style.display = platEditorPanel.style.display === 'none' ? 'block' : 'none';
+        });
+    }
+
+    if (btnCancelPlat) {
+        btnCancelPlat.addEventListener('click', () => {
+            platEditorPanel.style.display = 'none';
+            platForm.reset();
+        });
+    }
+
+    chargerReferentielPlats().then(() => chargerMenus());
+
+    async function chargerReferentielPlats(selectedPlatIds = []) {
+        try {
+            const res = await fetch('/api/admin/menus/referentiel', {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            const data = await res.json();
+            if (data.statut === 'succes') {
+                referentielPlats = data.plats || [];
+                referentielAllergenes = data.allergenes || [];
+                renderSelecteurPlats(selectedPlatIds);
+                renderSelecteurAllergenes();
+            }
+        } catch (err) {
+            console.error('Erreur chargement référentiel plats:', err);
+        }
+    }
+
+    function renderSelecteurAllergenes() {
+        const container = document.getElementById('plat-allergenes-list');
+        if (!container) return;
+        container.innerHTML = referentielAllergenes.map(a => `
+            <label class="plat-check-item">
+                <input type="checkbox" name="plat_allergenes" value="${a.id}">
+                <span>${escapeHtml(a.nom)}</span>
+            </label>
+        `).join('');
+    }
+
+    function renderSelecteurPlats(selectedIds = []) {
+        const container = document.getElementById('menu-plats-selector');
+        if (!container) return;
+
+        const selectedSet = new Set(selectedIds.map(id => Number(id)));
+        const categories = [
+            { key: 'entree', label: 'Entrées' },
+            { key: 'plat', label: 'Plats principaux' },
+            { key: 'dessert', label: 'Desserts' }
+        ];
+
+        container.innerHTML = categories.map(cat => {
+            const items = referentielPlats.filter(p => p.categorie === cat.key);
+            const listHtml = items.length > 0
+                ? items.map(p => {
+                    const allergenesTxt = (p.allergenes && p.allergenes.length > 0)
+                        ? ` <small style="color:#92400E;">(${p.allergenes.map(a => escapeHtml(a.nom)).join(', ')})</small>`
+                        : '';
+                    return `
+                        <label class="plat-check-item">
+                            <input type="checkbox" name="menu_plats" value="${p.id}" ${selectedSet.has(Number(p.id)) ? 'checked' : ''}>
+                            <span>${escapeHtml(p.nom)}${allergenesTxt}</span>
+                        </label>
+                    `;
+                }).join('')
+                : '<p style="font-size:12px; color:var(--color-text-muted);">Aucun plat dans cette catégorie.</p>';
+
+            return `
+                <div class="plats-category-box">
+                    <h5>${cat.label}</h5>
+                    ${listHtml}
+                </div>
+            `;
+        }).join('');
+    }
+
+    if (platForm) {
+        platForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const checkedMenuPlats = Array.from(document.querySelectorAll('input[name="menu_plats"]:checked')).map(cb => Number(cb.value));
+            const allergeneIds = Array.from(document.querySelectorAll('input[name="plat_allergenes"]:checked')).map(cb => Number(cb.value));
+
+            const payload = {
+                nom: document.getElementById('plat-nom').value.trim(),
+                categorie: document.getElementById('plat-categorie').value,
+                description: document.getElementById('plat-description').value.trim(),
+                allergene_ids: allergeneIds
+            };
+
+            try {
+                const res = await fetch('/api/admin/plats', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok && data.statut === 'succes') {
+                    platForm.reset();
+                    platEditorPanel.style.display = 'none';
+                    if (data.id) checkedMenuPlats.push(Number(data.id));
+                    await chargerReferentielPlats(checkedMenuPlats);
+                } else {
+                    alert('Erreur : ' + (data.message || 'Impossible d’ajouter ce plat.'));
+                }
+            } catch (err) {
+                alert('Erreur réseau lors de l’ajout du plat.');
+            }
+        });
+    }
+
+    function resetMenuForm() {
+        document.getElementById('menu-id').value = '';
+        menuForm.reset();
+        document.getElementById('menu-convives').value = '4';
+        document.getElementById('menu-stock').value = '10';
+        document.getElementById('menu-delai').value = '7';
+        document.getElementById('menu-stockage').value = 'Conserver entre 0°C et +4°C';
+        menuEditorTitle.textContent = 'Créer un nouveau menu';
+        document.getElementById('btn-submit-menu').textContent = 'Enregistrer le menu';
+        renderSelecteurPlats([]);
+    }
+
+    function ouvrirEditionMenu(menu) {
+        document.getElementById('menu-id').value = menu.id;
+        document.getElementById('menu-titre').value = menu.titre || '';
+        document.getElementById('menu-theme').value = menu.theme || 'classique';
+        document.getElementById('menu-regime').value = menu.regime || 'classique';
+        document.getElementById('menu-prix').value = menu.prix_unitaire_ttc || '';
+        document.getElementById('menu-convives').value = menu.convives_min || 4;
+        document.getElementById('menu-stock').value = menu.stock_disponible ?? 0;
+        document.getElementById('menu-delai').value = menu.delai_min_jours ?? 7;
+        document.getElementById('menu-stockage').value = menu.conditions_stockage || 'Conserver entre 0°C et +4°C';
+        document.getElementById('menu-image').value = menu.image_url || '';
+        document.getElementById('menu-description').value = menu.description || '';
+
+        const platIds = (menu.plats || []).map(p => Number(p.id));
+        renderSelecteurPlats(platIds);
+
+        menuEditorTitle.textContent = `Modifier le menu : ${menu.titre}`;
+        document.getElementById('btn-submit-menu').textContent = 'Mettre à jour le menu';
+        menuEditorPanel.style.display = 'block';
+        menuEditorPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    if (menuForm) {
+        menuForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const menuId = document.getElementById('menu-id').value;
+            const platIds = Array.from(document.querySelectorAll('input[name="menu_plats"]:checked')).map(cb => Number(cb.value));
+
+            const payload = {
+                titre: document.getElementById('menu-titre').value.trim(),
+                theme: document.getElementById('menu-theme').value,
+                regime: document.getElementById('menu-regime').value,
+                prix_unitaire_ttc: parseFloat(document.getElementById('menu-prix').value),
+                convives_min: parseInt(document.getElementById('menu-convives').value, 10),
+                stock_disponible: parseInt(document.getElementById('menu-stock').value, 10),
+                delai_min_jours: parseInt(document.getElementById('menu-delai').value, 10),
+                conditions_stockage: document.getElementById('menu-stockage').value.trim(),
+                image_url: document.getElementById('menu-image').value.trim(),
+                description: document.getElementById('menu-description').value.trim(),
+                plat_ids: platIds
+            };
+
+            const url = menuId ? `/api/admin/menus/${menuId}` : '/api/admin/menus';
+            const method = menuId ? 'PUT' : 'POST';
+
+            try {
+                const res = await fetch(url, {
+                    method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok && data.statut === 'succes') {
+                    menuEditorPanel.style.display = 'none';
+                    resetMenuForm();
+                    chargerMenus();
+                    chargerStatsMongo();
+                } else {
+                    alert('Erreur : ' + (data.message || 'Impossible d’enregistrer le menu.'));
+                }
+            } catch (err) {
+                alert('Erreur réseau lors de l’enregistrement du menu.');
+            }
+        });
+    }
+
+    function chargerMenus() {
+        if (!menusTableBody) return;
+        fetch('/api/menus')
+            .then(res => res.json())
+            .then(res => {
+                menusCache = res.donnees || [];
+                if (res.statut === 'succes' && menusCache.length > 0) {
+                    renderMenus(menusCache);
+                } else {
+                    menusTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucun menu actif dans le catalogue.</td></tr>';
+                }
+            })
+            .catch(() => {
+                menusTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des menus.</td></tr>';
+            });
+    }
+
+    function renderMenus(menus) {
+        menusTableBody.innerHTML = '';
+
+        const labelsTheme = { noel: 'Noël', paques: 'Pâques', classique: 'Classique', evenement: 'Événement' };
+        const labelsRegime = { classique: 'Classique', vegetarien: 'Végétarien', vegan: 'Vegan' };
+
+        menus.forEach(menu => {
+            const tr = document.createElement('tr');
+            const prixUnit = parseFloat(menu.prix_unitaire_ttc || 0);
+            const convivesMin = parseInt(menu.convives_min || 4, 10);
+            const totalMin = (prixUnit * convivesMin).toFixed(2).replace('.', ',');
+            const prixUnitStr = prixUnit.toFixed(2).replace('.', ',');
+
+            const platsResume = (menu.plats && menu.plats.length > 0)
+                ? menu.plats.map(p => escapeHtml(p.nom)).join(' • ')
+                : '<em style="color:var(--color-text-muted);">Aucun plat associé</em>';
+
+            const stock = parseInt(menu.stock_disponible || 0, 10);
+            const stockBadgeClass = stock > 3 ? 'publie' : 'en-attente';
+
+            tr.innerHTML = `
+                <td>
+                    <img src="${escapeHtml(menu.image_url)}" alt="${escapeHtml(menu.titre)}" class="menu-thumb" onerror="this.style.display='none'">
+                </td>
+                <td style="max-width: 340px;">
+                    <div><strong>${escapeHtml(menu.titre)}</strong></div>
+                    <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">${platsResume}</div>
+                </td>
+                <td>
+                    <span class="user-badge" style="font-size: 11px; padding: 3px 10px;">
+                        ${escapeHtml(labelsTheme[menu.theme] || menu.theme)} • ${escapeHtml(labelsRegime[menu.regime] || menu.regime)}
+                    </span>
+                </td>
+                <td>
+                    <div><strong>${prixUnitStr} €</strong> / pers.</div>
+                    <small style="color: var(--color-text-muted);">Min. ${convivesMin} pers. (${totalMin} €)</small>
+                </td>
+                <td>
+                    <div><span class="avis-badge ${stockBadgeClass}">${stock} dispo.</span></div>
+                    <small style="color: var(--color-text-muted);">Délai ${menu.delai_min_jours}j • ${escapeHtml(menu.conditions_stockage)}</small>
+                </td>
+                <td style="white-space: nowrap;">
+                    <button type="button" class="btn-avis-approve btn-menu-edit" data-id="${menu.id}">✎ Modifier</button>
+                    <button type="button" class="btn-avis-reject btn-menu-delete" data-id="${menu.id}">✕ Supprimer</button>
+                </td>
+            `;
+            menusTableBody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.btn-menu-edit').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const id = Number(e.target.getAttribute('data-id'));
+                const menu = menusCache.find(m => Number(m.id) === id);
+                if (menu) ouvrirEditionMenu(menu);
+            });
+        });
+
+        document.querySelectorAll('.btn-menu-delete').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const id = e.target.getAttribute('data-id');
+                if (!confirm('Retirer ce menu du catalogue ?')) return;
+
+                try {
+                    const res = await fetch(`/api/admin/menus/${id}`, {
+                        method: 'DELETE',
+                        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.statut === 'succes') {
+                        chargerMenus();
+                    } else {
+                        alert('Erreur : ' + (data.message || 'Impossible de supprimer ce menu.'));
+                    }
+                } catch (err) {
+                    alert('Erreur réseau lors de la suppression.');
+                }
+            });
+        });
+    }
+
+    // =========================================================================
+    // 4. GESTION DES COMMANDES SQL
+    // =========================================================================
     chargerCommandes();
 
     function chargerCommandes() {
@@ -115,8 +447,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucune commande trouvée.</td></tr>';
                 }
             })
-            .catch(err => {
-                console.error('Erreur commandes:', err);
+            .catch(() => {
                 tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des commandes.</td></tr>';
             });
     }
@@ -126,11 +457,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         commandes.forEach(cmd => {
             const tr = document.createElement('tr');
-
             const prenom = cmd.client_prenom || cmd.prenom || 'Client';
             const nom = cmd.client_nom || cmd.nom || '';
             const email = cmd.client_email || cmd.email || '-';
-
             const idCommande = cmd.id || cmd.commande_id;
             const numeroCommande = cmd.numero_commande || (`CMD-${idCommande}`);
 
@@ -214,7 +543,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         chargerCommandes();
                     }
                 } catch (err) {
-                    console.error('Erreur changement statut:', err);
                     alert('Erreur de connexion au serveur.');
                     chargerCommandes();
                 }
@@ -222,7 +550,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // 4. Charger et modérer les avis clients
+    // =========================================================================
+    // 5. MODÉRATION DES AVIS CLIENTS
+    // =========================================================================
     chargerAvis();
 
     function chargerAvis() {
@@ -240,8 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     avisTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucun avis client enregistré pour le moment.</td></tr>';
                 }
             })
-            .catch(err => {
-                console.error('Erreur chargement avis:', err);
+            .catch(() => {
                 avisTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des avis.</td></tr>';
             });
     }
@@ -251,7 +580,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         listeAvis.forEach(avis => {
             const tr = document.createElement('tr');
-
             const rawDate = avis.date_creation || avis.created_at;
             let dateAffiche = '-';
             if (rawDate) {
@@ -262,7 +590,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const auteur = `${avis.prenom || avis.client_prenom || 'Client'} ${avis.nom || avis.client_nom || ''}`.trim();
             const note = Math.min(5, Math.max(1, parseInt(avis.note) || 5));
             const etoiles = '★'.repeat(note) + '☆'.repeat(5 - note);
-
             const estValide = avis.est_valide == 1 || avis.est_valide === true || String(avis.statut || '').toLowerCase().includes('valid');
 
             tr.innerHTML = `
@@ -284,7 +611,6 @@ document.addEventListener('DOMContentLoaded', () => {
             avisTableBody.appendChild(tr);
         });
 
-        // Action : Valider un avis
         document.querySelectorAll('.btn-avis-approve').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const avisId = e.target.getAttribute('data-id');
@@ -304,13 +630,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert('Erreur : ' + (data.message || 'Impossible de valider cet avis.'));
                     }
                 } catch (err) {
-                    console.error('Erreur validation avis:', err);
                     alert('Erreur réseau lors de la validation.');
                 }
             });
         });
 
-        // Action : Supprimer / refuser un avis
         document.querySelectorAll('.btn-avis-reject').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const avisId = e.target.getAttribute('data-id');
@@ -328,14 +652,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert('Erreur : ' + (data.message || 'Impossible de supprimer cet avis.'));
                     }
                 } catch (err) {
-                    console.error('Erreur suppression avis:', err);
                     alert('Erreur réseau lors de la suppression.');
                 }
             });
         });
     }
 
-    // 5. Charger et traiter les messages de contact
+    // =========================================================================
+    // 6. MESSAGES & DEMANDES DE DEVIS
+    // =========================================================================
     chargerContacts();
 
     function chargerContacts() {
@@ -353,8 +678,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     contactsTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucun message ou demande de devis reçu pour le moment.</td></tr>';
                 }
             })
-            .catch(err => {
-                console.error('Erreur chargement messages contact:', err);
+            .catch(() => {
                 contactsTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des messages.</td></tr>';
             });
     }
@@ -364,7 +688,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         listeContacts.forEach(msg => {
             const tr = document.createElement('tr');
-
             const rawDate = msg.date_envoi || msg.created_at;
             let dateAffiche = '-';
             if (rawDate) {
@@ -399,7 +722,6 @@ document.addEventListener('DOMContentLoaded', () => {
             contactsTableBody.appendChild(tr);
         });
 
-        // Action : Marquer une demande de contact comme traitée
         document.querySelectorAll('.btn-contact-treat').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const contactId = e.target.getAttribute('data-id');
@@ -415,13 +737,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert('Erreur : ' + (data.message || 'Impossible de mettre à jour ce message.'));
                     }
                 } catch (err) {
-                    console.error('Erreur traitement message:', err);
                     alert('Erreur réseau lors de la mise à jour.');
                 }
             });
         });
 
-        // Action : Supprimer un message de contact
         document.querySelectorAll('.btn-contact-delete').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const contactId = e.target.getAttribute('data-id');
@@ -439,7 +759,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert('Erreur : ' + (data.message || 'Impossible de supprimer ce message.'));
                     }
                 } catch (err) {
-                    console.error('Erreur suppression message:', err);
                     alert('Erreur réseau lors de la suppression.');
                 }
             });

@@ -147,6 +147,32 @@ if (preg_match('#^/api/admin/contacts/([0-9]+)$#', $uri, $matches) && $method ==
     exit;
 }
 
+// Menus & Plats - Gestion Back-Office (Admin & Employé)
+if ($uri === '/api/admin/menus/referentiel' && $method === 'GET') {
+    (new MenuController())->referentiel();
+    exit;
+}
+
+if ($uri === '/api/admin/menus' && $method === 'POST') {
+    (new MenuController())->store();
+    exit;
+}
+
+if (preg_match('#^/api/admin/menus/([0-9]+)$#', $uri, $matches) && $method === 'PUT') {
+    (new MenuController())->update((int)$matches[1]);
+    exit;
+}
+
+if (preg_match('#^/api/admin/menus/([0-9]+)$#', $uri, $matches) && $method === 'DELETE') {
+    (new MenuController())->destroy((int)$matches[1]);
+    exit;
+}
+
+if ($uri === '/api/admin/plats' && $method === 'POST') {
+    (new MenuController())->storePlat();
+    exit;
+}
+
 // Statistiques NoSQL (MongoDB)
 if ($uri === '/api/stats/popularite' && $method === 'GET') {
     (new MenuController())->popularite();

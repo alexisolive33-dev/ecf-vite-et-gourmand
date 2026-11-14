@@ -6,7 +6,6 @@
     <title>Administration & Pilotage | Vite & Gourmand</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        /* Styles spécifiques au Back-Office alignés sur le UI Kit */
         .admin-nav-user {
             display: flex;
             align-items: center;
@@ -136,50 +135,6 @@
             border-bottom: none;
         }
 
-        /* Sélecteurs de Statuts */
-        .status-select {
-            padding: 6px 12px;
-            border-radius: var(--radius-pill);
-            font-family: var(--font-sans);
-            font-weight: 600;
-            font-size: 12px;
-            cursor: pointer;
-            border: 1px solid transparent;
-            outline: none;
-            transition: var(--transition-smooth);
-        }
-
-        .status-select.en_attente {
-            background-color: var(--badge-warning-bg);
-            color: var(--badge-warning-text);
-            border-color: var(--badge-warning-border);
-        }
-
-        .status-select.validee {
-            background-color: #E0F2FE;
-            color: #0369A1;
-            border-color: #BAE6FD;
-        }
-
-        .status-select.en_preparation {
-            background-color: #F3E8FF;
-            color: #6B21A8;
-            border-color: #E9D5FF;
-        }
-
-        .status-select.livree {
-            background-color: var(--badge-success-bg);
-            color: var(--badge-success-text);
-            border-color: var(--badge-success-border);
-        }
-
-        .status-select.annulee {
-            background-color: var(--badge-danger-bg);
-            color: var(--badge-danger-text);
-            border-color: var(--badge-danger-border);
-        }
-
-        /* Badges et actions modération avis */
         .avis-badge {
             display: inline-block;
             padding: 4px 10px;
@@ -202,7 +157,7 @@
             background-color: #166534;
             color: #FFFFFF;
             border: none;
-            padding: 6px 10px;
+            padding: 6px 12px;
             border-radius: var(--radius-sm);
             font-size: 12px;
             font-weight: 600;
@@ -228,11 +183,115 @@
         .btn-avis-reject:hover {
             background-color: #FEE2E2;
         }
+
+        .btn-primary-bordeaux {
+            background-color: var(--color-primary);
+            color: #FFFFFF;
+            border: none;
+            padding: 8px 16px;
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: var(--transition-smooth);
+        }
+
+        .btn-primary-bordeaux:hover {
+            opacity: 0.92;
+        }
+
+        .btn-secondary-gold {
+            background-color: #FAF6EE;
+            color: #7A5810;
+            border: 1px solid #E5D3A3;
+            padding: 7px 14px;
+            border-radius: var(--radius-sm);
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .menu-editor-card {
+            background: var(--color-bg-card);
+            border: 1px solid var(--color-border);
+            border-top: 4px solid var(--color-primary);
+            border-radius: var(--radius-md);
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow-card);
+        }
+
+        .menu-form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .menu-form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .menu-form-group label {
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--color-text-title);
+        }
+
+        .menu-form-group input,
+        .menu-form-group select,
+        .menu-form-group textarea {
+            padding: 8px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-family: var(--font-sans);
+            font-size: 13px;
+        }
+
+        .plats-selector-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
+            margin-top: 8px;
+        }
+
+        .plats-category-box {
+            background: #FAF9F7;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            padding: 12px;
+        }
+
+        .plats-category-box h5 {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: var(--color-primary);
+            margin-bottom: 8px;
+            letter-spacing: 0.4px;
+        }
+
+        .plat-check-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            font-size: 12px;
+            padding: 4px 0;
+            cursor: pointer;
+        }
+
+        .menu-thumb {
+            width: 54px;
+            height: 40px;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid var(--color-border);
+        }
     </style>
 </head>
 <body>
 
-    <!-- Barre de Navigation Back-Office -->
     <header class="header-nav">
         <div class="navbar-container">
             <a href="/admin.html" class="brand-wrapper">
@@ -252,12 +311,11 @@
 
     <main class="container-1296 page-section">
         
-        <!-- En-tête Titre -->
         <div class="admin-dashboard-header">
             <span class="surtitre-or">PILOTAGE EN TEMPS RÉEL</span>
             <h1>Tableau de Bord Julie & José</h1>
             <p style="color: var(--color-text-muted); font-size: 14px; margin-top: 4px;">
-                Supervision des réservations clients, mise à jour des statuts de livraison, modération des avis et métriques de consultation.
+                Configuration des menus et plats, supervision des réservations clients, modération des avis et métriques de consultation.
             </p>
         </div>
 
@@ -271,7 +329,149 @@
             <p style="color: var(--color-text-muted); font-size: 13px;">Chargement des statistiques...</p>
         </div>
 
-        <!-- Section 2 : Commandes SQL MariaDB -->
+        <!-- Section 2 : Gestion & Configuration des Menus (Admin & Employé) -->
+        <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <h3 style="font-size: 18px;">Gestion des Menus & Carte</h3>
+                <span style="font-size: 12px; color: var(--color-text-muted);">Création, tarification, stock disponible et composition des plats & allergènes</span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button type="button" id="btn-toggle-plat-form" class="btn-secondary-gold">+ Ajouter un plat</button>
+                <button type="button" id="btn-open-menu-form" class="btn-primary-bordeaux">+ Nouveau menu</button>
+            </div>
+        </div>
+
+        <!-- Mini-formulaire d'ajout d'un plat avec allergènes -->
+        <div id="plat-editor-panel" class="menu-editor-card" style="display: none; border-top-color: var(--color-secondary);">
+            <h4 style="margin-bottom: 14px; font-size: 15px;">Ajouter un plat au référentiel</h4>
+            <form id="plat-form">
+                <div class="menu-form-grid">
+                    <div class="menu-form-group">
+                        <label for="plat-nom">Nom du plat *</label>
+                        <input type="text" id="plat-nom" required placeholder="Ex : Velouté de châtaignes aux éclats de noisettes">
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="plat-categorie">Catégorie *</label>
+                        <select id="plat-categorie" required>
+                            <option value="entree">Entrée</option>
+                            <option value="plat" selected>Plat principal</option>
+                            <option value="dessert">Dessert</option>
+                        </select>
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="plat-description">Description courte</label>
+                        <input type="text" id="plat-description" placeholder="Optionnel">
+                    </div>
+                </div>
+                <div class="menu-form-group" style="margin-bottom: 14px;">
+                    <label>Allergènes INCO présents dans ce plat :</label>
+                    <div id="plat-allergenes-list" style="display: flex; flex-wrap: wrap; gap: 12px; padding-top: 4px;"></div>
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" class="btn-primary-bordeaux">Enregistrer le plat</button>
+                    <button type="button" id="btn-cancel-plat" class="btn-outline-danger">Annuler</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Formulaire Création / Édition d'un Menu -->
+        <div id="menu-editor-panel" class="menu-editor-card" style="display: none;">
+            <h4 id="menu-editor-title" style="margin-bottom: 16px; font-size: 16px;">Créer un nouveau menu</h4>
+            <form id="menu-form">
+                <input type="hidden" id="menu-id" value="">
+                <div class="menu-form-grid">
+                    <div class="menu-form-group">
+                        <label for="menu-titre">Titre du menu *</label>
+                        <input type="text" id="menu-titre" required placeholder="Ex : Menu Festif du Réveillon">
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="menu-theme">Thème *</label>
+                        <select id="menu-theme" required>
+                            <option value="classique">Classique</option>
+                            <option value="noel">Noël</option>
+                            <option value="paques">Pâques</option>
+                            <option value="evenement">Événement</option>
+                        </select>
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="menu-regime">Régime alimentaire *</label>
+                        <select id="menu-regime" required>
+                            <option value="classique">Classique</option>
+                            <option value="vegetarien">Végétarien</option>
+                            <option value="vegan">Vegan</option>
+                        </select>
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="menu-prix">Prix unitaire TTC (€ / convive) *</label>
+                        <input type="number" id="menu-prix" step="0.01" min="1" required placeholder="45.00">
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="menu-convives">Nombre minimal de convives *</label>
+                        <input type="number" id="menu-convives" min="1" value="4" required>
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="menu-stock">Stock disponible (commandes) *</label>
+                        <input type="number" id="menu-stock" min="0" value="10" required>
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="menu-delai">Délai min. de commande (jours) *</label>
+                        <input type="number" id="menu-delai" min="0" value="7" required>
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="menu-stockage">Conditions de stockage *</label>
+                        <input type="text" id="menu-stockage" value="Conserver entre 0°C et +4°C" required>
+                    </div>
+                </div>
+
+                <div class="menu-form-grid">
+                    <div class="menu-form-group">
+                        <label for="menu-image">URL de l'image principale *</label>
+                        <input type="url" id="menu-image" required placeholder="https://...">
+                    </div>
+                    <div class="menu-form-group">
+                        <label for="menu-description">Présentation détaillée du menu *</label>
+                        <textarea id="menu-description" rows="2" required placeholder="Décrivez les saveurs et l'esprit de ce menu..."></textarea>
+                    </div>
+                </div>
+
+                <div class="menu-form-group" style="margin-bottom: 18px;">
+                    <label>Composition du menu (sélectionnez les entrées, plats et desserts associés) :</label>
+                    <div class="plats-selector-grid" id="menu-plats-selector">
+                        <p style="font-size: 12px; color: var(--color-text-muted);">Chargement des plats...</p>
+                    </div>
+                </div>
+
+                <div style="display: flex; gap: 10px;">
+                    <button type="submit" id="btn-submit-menu" class="btn-primary-bordeaux">Enregistrer le menu</button>
+                    <button type="button" id="btn-cancel-menu" class="btn-outline-danger">Annuler</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tableau des Menus -->
+        <div class="orders-table-wrapper" style="margin-bottom: 48px;">
+            <table class="admin-table">
+                <thead>
+                    <tr>
+                        <th>Visuel</th>
+                        <th>Menu & Plats</th>
+                        <th>Thème / Régime</th>
+                        <th>Tarif & Min.</th>
+                        <th>Stock & Conditions</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="menus-table-body">
+                    <tr>
+                        <td colspan="6" style="text-align: center; color: var(--color-text-muted); padding: 32px;">
+                            Chargement des menus en cours...
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Section 3 : Commandes SQL MariaDB -->
         <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
             <h3 style="font-size: 18px;">Gestion des Commandes</h3>
             <span style="font-size: 12px; color: var(--color-text-muted);">Transactions ACID & Verrous de stock</span>
@@ -300,7 +500,7 @@
             </table>
         </div>
 
-        <!-- Section 3 : Modération des Avis Clients -->
+        <!-- Section 4 : Modération des Avis Clients -->
         <div style="margin-top: 48px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
             <h3 style="font-size: 18px;">Modération des Avis Clients</h3>
             <span style="font-size: 12px; color: var(--color-text-muted);">Approbation avant publication sur la vitrine</span>
@@ -328,7 +528,7 @@
             </table>
         </div>
 
-        <!-- Section 4 : Messages & Demandes de Devis (Contact) -->
+        <!-- Section 5 : Messages & Demandes de Devis (Contact) -->
         <div style="margin-top: 48px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
             <h3 style="font-size: 18px;">Messages & Demandes de Devis</h3>
             <span style="font-size: 12px; color: var(--color-text-muted);">Réception directe depuis le formulaire de contact</span>
@@ -358,14 +558,12 @@
 
     </main>
 
-    <!-- Footer Back-Office -->
     <footer class="site-footer" style="padding: 24px 0; margin-top: 60px;">
         <div class="container-1296" style="text-align: center; font-size: 12px; color: #9CA3AF;">
             &copy; 2026 Vite & Gourmand — Système de gestion traiteur réservé à l'équipe. Tous droits réservés.
         </div>
     </footer>
 
-    <!-- Script de pilotage -->
-    <script src="/js/admin.js?v=3"></script>
+    <script src="/js/admin.js?v=4"></script>
 </body>
 </html>
