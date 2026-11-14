@@ -44,14 +44,14 @@ INSERT INTO `allergene` (`id`, `code`, `nom`) VALUES
 -- -----------------------------------------------------------------------------
 INSERT INTO `utilisateur` (`id`, `nom`, `prenom`, `email`, `mot_de_passe`, `telephone`, `adresse_postale`, `code_postal`, `ville`, `role`, `date_creation`) VALUES
 -- Administrateurs (Julie & José)
-(1, 'Gourmand', 'Julie', 'julie@vitegourmand.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0556000001', '12 Cours de l\'Intendance', '33000', 'Bordeaux', 'admin', '2026-01-10 09:00:00'),
+(1, 'Gourmand', 'Julie', 'julie@vitegourmand.fr', '$2y$10$SLtd3QUoeUGWW5my7yFFEu9utJ/96l7EzijKbaH8Uae2xPSy8Utzi', '0556000001', '12 Cours de l\'Intendance', '33000', 'Bordeaux', 'admin', '2026-01-10 09:00:00'),
 (2, 'Gourmand', 'José',  'jose@vitegourmand.fr',  '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0556000002', '12 Cours de l\'Intendance', '33000', 'Bordeaux', 'admin', '2026-01-10 09:00:00'),
 -- Employé cuisine & livraison
 (3, 'Lemoine',  'Thomas', 'thomas.livraison@vitegourmand.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0601020304', '8 Rue Sainte-Catherine', '33000', 'Bordeaux', 'employe', '2026-02-01 08:30:00'),
 -- Clients du portfolio
-(4, 'Dubois',   'Mathieu', 'mathieu.dubois@email.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0611223344', 'Allée des Châteaux', '33700', 'Mérignac', 'client', '2026-08-15 14:20:00'),
-(5, 'Aquitaine Conseil', 'Cabinet', 'contact@aquitaine-conseil.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0557889900', '45 Quai des Chartrons', '33000', 'Bordeaux', 'client', '2026-09-01 10:15:00'),
-(6, 'Martin',   'Claire',  'claire.martin@email.fr', '$2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS', '0699887766', '15 Avenue de l\'Abreuvoir', '33700', 'Mérignac', 'client', '2026-10-05 16:40:00');
+(4, 'Dubois',   'Mathieu', 'mathieu.dubois@email.fr', '$2y$10$5mQILVv40ktR3dW.UI2yx..Bg3I5sTWtzsQVEDYpwCMvn4kIr3I6u', '0611223344', 'Allée des Châteaux', '33700', 'Mérignac', 'client', '2026-08-15 14:20:00'),
+(5, 'Aquitaine Conseil', 'Cabinet', 'contact@aquitaine-conseil.fr', '$2y$10$5mQILVv40ktR3dW.UI2yx..Bg3I5sTWtzsQVEDYpwCMvn4kIr3I6u', '0557889900', '45 Quai des Chartrons', '33000', 'Bordeaux', 'client', '2026-09-01 10:15:00'),
+(6, 'Martin',   'Claire',  'claire.martin@email.fr', '$2y$10$5mQILVv40ktR3dW.UI2yx..Bg3I5sTWtzsQVEDYpwCMvn4kIr3I6u', '0699887766', '15 Avenue de l\'Abreuvoir', '33700', 'Mérignac', 'client', '2026-10-05 16:40:00');
 
 -- -----------------------------------------------------------------------------
 -- 3. Les 4 Menus événementiels du catalogue Figma

@@ -15,10 +15,10 @@ Projet réalisé dans le cadre de l'**ECF Développeur Web et Web Mobile** (Nive
 
 | Rôle | Utilisateur | Adresse e-mail | Mot de passe | Accès |
 | :--- | :--- | :--- | :--- | :--- |
-| **Administrateur** | José Gourmand | `jose@vitegourmand.fr` | `Password123!` | Back-office complet (commandes, avis, messages, stats NoSQL) |
-| **Administrateur** | Julie Gourmand | `julie@vitegourmand.fr` | `Password123!` | Back-office complet |
-| **Employé** | Thomas Lemoine | `thomas.livraison@vitegourmand.fr` | `Password123!` | Suivi des commandes, modération des avis et messages |
-| **Client** | Mathieu Dubois | `mathieu.dubois@email.fr` | `Password123!` | Espace personnel, commandes, dépôt d'avis vérifiés |
+| **Administrateur** | José Gourmand | `jose@vitegourmand.fr` | `Admin2026!` | Back-office complet (commandes, avis, messages, stats NoSQL) |
+| **Administrateur** | Julie Gourmand | `julie@vitegourmand.fr` | `Admin2026!` | Back-office complet |
+| **Employé** | Thomas Lemoine | `thomas.livraison@vitegourmand.fr` | `Employe2026!` | Suivi des commandes, modération des avis et messages |
+| **Client** | Mathieu Dubois | `mathieu.dubois@email.fr` | `Client2026!` | Espace personnel, commandes, dépôt d'avis vérifiés |
 
 ---
 
