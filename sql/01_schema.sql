@@ -187,15 +187,13 @@ CREATE TABLE `avis` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
--- 10. Table : contact_message (Demandes de devis & renseignements)
+-- 10. Table : contact_message (Formulaire de contact : titre, description, email)
 -- -----------------------------------------------------------------------------
 CREATE TABLE `contact_message` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `nom_complet` VARCHAR(150) NOT NULL,
+    `titre` VARCHAR(150) NOT NULL,
+    `description` TEXT NOT NULL,
     `email` VARCHAR(150) NOT NULL,
-    `telephone` VARCHAR(30) NULL,
-    `type_evenement` VARCHAR(80) NOT NULL DEFAULT 'particulier',
-    `message` TEXT NOT NULL,
     `statut` VARCHAR(30) NOT NULL DEFAULT 'nouveau',
     `date_envoi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX `idx_contact_statut` (`statut`)

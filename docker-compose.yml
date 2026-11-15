@@ -16,8 +16,11 @@ services:
       DB_NAME: vite_et_gourmand
       DB_USER: root
       DB_PASS: root
+      MONGODB_URI: mongodb://root:root@mongodb:27017/?authSource=admin
+      MONGO_DB: vite_et_gourmand_analytics
     depends_on:
       - mariadb
+      - mongodb
 
   # ---------------------------------------------------------------------------
   # Base de données relationnelle (MySQL / MariaDB)

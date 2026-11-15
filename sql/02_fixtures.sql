@@ -5,8 +5,10 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+TRUNCATE TABLE `horaire`;
 TRUNCATE TABLE `contact_message`;
 TRUNCATE TABLE `avis`;
+TRUNCATE TABLE `commande_historique`;
 TRUNCATE TABLE `ligne_commande`;
 TRUNCATE TABLE `commande`;
 TRUNCATE TABLE `plat_allergene`;
@@ -39,8 +41,10 @@ INSERT INTO `allergene` (`id`, `code`, `nom`) VALUES
 
 -- -----------------------------------------------------------------------------
 -- 2. Comptes utilisateurs
--- Mot de passe de test : Password123!
--- Hash Bcrypt : $2y$10$eACCYoNOHEqgkVE8aGY2A.k0d5I7Zk7d3f8a4V2f0QoE3gVzDkIWS
+-- Mots de passe de démonstration :
+--   - Admins (Julie & José) : Admin2026!
+--   - Employé (Thomas)      : Employe2026!
+--   - Clients               : Client2026!
 -- -----------------------------------------------------------------------------
 INSERT INTO `utilisateur` (`id`, `nom`, `prenom`, `email`, `mot_de_passe`, `telephone`, `adresse_postale`, `code_postal`, `ville`, `role`, `date_creation`) VALUES
 -- Administrateurs (Julie & José)
@@ -81,17 +85,12 @@ INSERT INTO `menu` (`id`, `titre`, `description`, `image_url`, `prix_unitaire_tt
 -- 4. Préparations culinaires (Plats)
 -- -----------------------------------------------------------------------------
 INSERT INTO `plat` (`id`, `nom`, `description`, `categorie`) VALUES
--- Plats Menu 1 (Noël)
 (1, 'Médaillon de foie gras maison', 'Chutney de figues et brioche dorée.', 'entree'),
 (2, 'Suprême de volaille fermière aux morilles', 'Écrasé de grenailles truffé et petits légumes glacés.', 'plat'),
 (3, 'Bûche pâtissière marrons & chocolat grand cru', 'Praliné croustillant et ganache noire 70%.', 'dessert'),
-
--- Plats Menu 2 (Pâques)
 (4, 'Asperges blanches rôties du Blayais', 'Mousseline d\'herbes fraîches et tomme de brebis.', 'entree'),
 (5, 'Risotto crémeux aux morilles', 'Riz Carnaroli lié au parmesan 24 mois.', 'plat'),
 (6, 'Nid croustillant au chocolat grand cru', 'Sablé cacao et ganache guanaja.', 'dessert'),
-
--- Plats Menus 3 & 4 (Buffet & Végétal)
 (7, 'Assortiment de 12 pièces cocktails salées', 'Canapés terre-mer et navettes briochées.', 'entree'),
 (8, 'Poêlée festive terre-mer marinée', 'Mini-brochettes de volaille et crevettes persillées.', 'plat'),
 (9, 'Plateau de mignardises artisanales', 'Macarons, tartelettes citron et choux vanille.', 'dessert'),
@@ -102,36 +101,25 @@ INSERT INTO `plat` (`id`, `nom`, `description`, `categorie`) VALUES
 -- 5. Composition des Menus (menu_plat)
 -- -----------------------------------------------------------------------------
 INSERT INTO `menu_plat` (`menu_id`, `plat_id`) VALUES
-(1, 1), (1, 2), (1, 3),    -- Menu 1 : Foie gras + Volaille + Bûche
-(2, 4), (2, 5), (2, 6),    -- Menu 2 : Asperges + Risotto + Nid chocolat
-(3, 7), (3, 8), (3, 9),    -- Menu 3 : Pièces cocktail + Terre-mer + Mignardises
-(4, 4), (4, 10), (4, 11);  -- Menu 4 : Asperges + Légumes anciens + Tartelette
+(1, 1), (1, 2), (1, 3),
+(2, 4), (2, 5), (2, 6),
+(3, 7), (3, 8), (3, 9),
+(4, 4), (4, 10), (4, 11);
 
 -- -----------------------------------------------------------------------------
 -- 6. Déclaration des allergènes par plat (plat_allergene)
 -- -----------------------------------------------------------------------------
 INSERT INTO `plat_allergene` (`plat_id`, `allergene_id`) VALUES
--- Plat 1 : Gluten, Lait
 (1, 1), (1, 7),
--- Plat 2 : Lait
 (2, 7),
--- Plat 3 : Gluten, Oeufs, Lait, Fruits à coque
 (3, 1), (3, 3), (3, 7), (3, 8),
--- Plat 4 : Lait, Céleri
 (4, 7), (4, 9),
--- Plat 5 : Lait, Céleri
 (5, 7), (5, 9),
--- Plat 6 : Gluten, Oeufs, Lait
 (6, 1), (6, 3), (6, 7),
--- Plat 7 : Gluten, Crustacés, Poissons, Lait
 (7, 1), (7, 2), (7, 4), (7, 7),
--- Plat 8 : Crustacés, Moutarde
 (8, 2), (8, 10),
--- Plat 9 : Gluten, Oeufs, Lait, Fruits à coque
 (9, 1), (9, 3), (9, 7), (9, 8),
--- Plat 10 : Fruits à coque, Graines de sésame
 (10, 8), (10, 11),
--- Plat 11 : Soja
 (11, 6);
 
 -- -----------------------------------------------------------------------------
@@ -143,27 +131,21 @@ INSERT INTO `commande` (
     `adresse_livraison`, `ville_livraison`, `distance_km`, 
     `frais_livraison`, `sous_total_repas`, `montant_remise`, `total_ttc`, `statut`
 ) VALUES
--- Commande 1 : Prestation passée (Mérignac)
 (1, 'CMD-2026-0912', 4, 
     '2026-08-20 11:15:00', '2026-09-12 12:00:00', 
     'Domaine des Vignes, Allée des Châteaux', 'Mérignac', 12.0, 
     12.08, 1650.00, 165.00, 1497.08, 'livree'),
 
--- Commande 2 : Prestation entreprise passée (Bordeaux intra-muros = 0 km)
 (2, 'CMD-2026-1002', 5, 
     '2026-09-22 09:30:00', '2026-10-02 11:30:00', 
     '45 Quai des Chartrons', 'Bordeaux', 0.0, 
     0.00, 825.00, 82.50, 742.50, 'livree'),
 
--- Commande 3 : Prestation livrée le 01/11/2026 (cohérente avec l'avis du 03/11/2026)
--- 12 convives x 48,00 € = 576,00 € | Remise -10% = 57,60 € | Repas net = 518,40 €
--- Livraison Mérignac 15 km : 5,00 € + (15 x 0,59 €) = 13,85 € | Total TTC = 532,25 €
 (3, 'CMD-2026-1101', 6, 
     '2026-10-20 14:00:00', '2026-11-01 19:00:00', 
     '15 Avenue de l\'Abreuvoir', 'Mérignac', 15.0, 
     13.85, 576.00, 57.60, 532.25, 'livree'),
 
--- Commande 4 : Commande à venir en attente de validation back-office
 (4, 'CMD-2026-1224', 4, 
     '2026-11-12 10:30:00', '2026-12-24 19:00:00', 
     'Domaine des Vignes, Allée des Châteaux', 'Mérignac', 12.0, 
@@ -182,28 +164,33 @@ INSERT INTO `ligne_commande` (`id`, `commande_id`, `menu_id`, `nb_convives`, `pr
 -- 9. Avis clients vérifiés et modération
 -- -----------------------------------------------------------------------------
 INSERT INTO `avis` (`id`, `utilisateur_id`, `commande_id`, `note`, `commentaire`, `est_valide`, `date_creation`) VALUES
--- Avis 1 : visible sur Figma Accueil (Mathieu D.)
 (1, 4, 1, 5, 
     'Julie et José ont assuré le repas de notre mariage. Tout était raffiné, servi chaud et les convives étaient conquis !', 
     TRUE, '2026-09-14 18:30:00'),
 
--- Avis 2 : visible sur Figma Accueil (Cabinet Aquitaine Conseil)
 (2, 5, 2, 5, 
     'Un buffet d\'entreprise parfait, ponctuel et une gestion exemplaire des options végétariennes.', 
     TRUE, '2026-10-03 10:45:00'),
 
--- Avis 3 : avis en attente de validation (test du module de modération admin)
 (3, 6, 3, 4, 
     'Prestation raffinée et ponctuelle pour notre dîner entre amis, présentation soignée et produits très frais !', 
     FALSE, '2026-11-03 14:10:00');
 
 -- -----------------------------------------------------------------------------
--- 10. Messages & demandes de devis (Formulaire de contact)
+-- 10. Messages & demandes de contact (titre, description, email)
 -- -----------------------------------------------------------------------------
-INSERT INTO `contact_message` (`id`, `nom_complet`, `email`, `telephone`, `type_evenement`, `message`, `statut`, `date_envoi`) VALUES
-(1, 'Sophie Bernard', 'sophie.bernard@email.fr', '06 45 78 12 30', 'Événement Privé / Mariage',
+INSERT INTO `contact_message` (`id`, `titre`, `description`, `email`, `statut`, `date_envoi`) VALUES
+(1, 'Demande de devis cocktail dînatoire 45 personnes',
     'Bonjour, nous organisons un cocktail dînatoire pour 45 personnes à Pessac le 12 juin prochain. Pourriez-vous nous proposer une variante sans fruits à coque ?',
-    'nouveau', '2026-11-12 15:20:00'),
-(2, 'Marc Lefèvre', 'm.lefevre@bordeaux-tech.fr', '05 56 44 11 22', 'Buffet / Cocktail Entreprise',
+    'sophie.bernard@email.fr', 'nouveau', '2026-11-12 15:20:00'),
+(2, 'Buffet déjeunatoire entreprise 25 collaborateurs',
     'Demande de devis pour un petit-déjeuner et buffet déjeunatoire de 25 collaborateurs dans nos locaux aux Chartrons.',
-    'traite', '2026-11-08 09:45:00');
+    'm.lefevre@bordeaux-tech.fr', 'traite', '2026-11-08 09:45:00');
+
+-- -----------------------------------------------------------------------------
+-- 11. Horaires d'ouverture par défaut
+-- -----------------------------------------------------------------------------
+INSERT INTO `horaire` (`id`, `jour_semaine`, `heures_ouverture`, `ordre`) VALUES
+(1, 'Lundi au Vendredi', '08h30 – 19h00', 1),
+(2, 'Samedi',            '09h00 – 20h00', 2),
+(3, 'Dimanche',          '09h00 – 15h00', 3);
