@@ -12,14 +12,15 @@ Projet réalisé dans le cadre de l'**ECF Développeur Web et Web Mobile** (Nive
 - **Connexion / Back-Office :** https://vite-gourmand-a0uf.onrender.com/login.html
 - **Dépôt GitHub :** https://github.com/alexisolive33-dev/ecf-vite-et-gourmand
 - **Gestion de projet (Trello) :** https://trello.com/b/fs0YJgQr/ecf-vite-gourmand-suivi-de-projet
+- **Maquettes UI/UX (Figma) :** https://www.figma.com/design/72yLGYmORYYlpJF9mNEuQo/ECF---Vite---Gourmand---Maquettes-UI?node-id=0-1&t=oXEFxgmTBhlp2kld-1
 
 ### Comptes de test (Jeu d'essai officiel)
 
 | Rôle | Utilisateur | Adresse e-mail | Mot de passe | Accès |
 | :--- | :--- | :--- | :--- | :--- |
-| **Administratrice** | Julie Gourmand | `julie@vitegourmand.fr` | `Admin2026!` | Back-office complet (commandes, avis, messages, stats NoSQL) |
+| **Administratrice** | Julie Gourmand | `julie@vitegourmand.fr` | `Admin2026!` | Back-office complet (gestion employés, commandes, menus, avis, CA & stats NoSQL) |
 | **Administrateur** | José Gourmand | `jose@vitegourmand.fr` | `Admin2026!` | Back-office complet |
-| **Employé** | Thomas Lemoine | `thomas.livraison@vitegourmand.fr` | `Employe2026!` | Suivi des commandes, modération des avis et messages |
+| **Employé** | Thomas Lemoine | `thomas.livraison@vitegourmand.fr` | `Employe2026!` | Gestion des menus, plats et horaires, suivi des commandes, modération des avis |
 | **Client** | Mathieu Dubois | `mathieu.dubois@email.fr` | `Client2026!` | Espace personnel, commandes, dépôt d'avis vérifiés |
 | **Cliente** | Claire Martin | `claire.martin@email.fr` | `Client2026!` | Espace personnel, commandes, dépôt d'avis vérifiés |
 | **Client Pro** | Cabinet Aquitaine Conseil | `contact@aquitaine-conseil.fr` | `Client2026!` | Espace professionnel, commandes |
@@ -103,3 +104,12 @@ Time: 00:00.497, Memory: 8.00 MB
 
 OK (7 tests, 21 assertions)
 ```
+
+---
+
+## Livrables documentaires (`docs/`)
+
+- `docs/Documentation_Gestion_Projet_OLIVE_Alexis.pdf` — Suivi Agile/Kanban, planning sur 70 h, Git Flow et gestion des risques.
+- `docs/Documentation_Technique_OLIVE_Alexis.pdf` — Choix technologiques, environnement Docker, MCD Merise, diagrammes UML (cas d'utilisation & séquence) et déploiement.
+- `docs/Charte_Graphique_Maquettes_OLIVE_Alexis.pdf` — Palette RGAA, typographie, 3 maquettes bureautiques et 3 maquettes mobiles Figma.
+- `docs/Manuel_Utilisation_OLIVE_Alexis.pdf` — Guide utilisateur complet par profil.
