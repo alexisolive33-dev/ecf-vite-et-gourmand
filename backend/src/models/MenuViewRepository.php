@@ -159,12 +159,14 @@ class MenuViewRepository
     public function getStatistiquesCommandesParMenu(?PDO $pdo = null): array
     {
         if (!class_exists('\\MongoDB\\Driver\\Manager')) {
+            $this->lastError = 'Extension PHP ext-mongodb absente';
             return $this->getFallbackOrdersStats();
         }
 
         try {
             $manager = MongoDatabase::getManager();
             if (!$manager) {
+                $this->lastError = 'Manager MongoDB null (URI invalide)';
                 return $this->getFallbackOrdersStats();
             }
 
@@ -182,6 +184,7 @@ class MenuViewRepository
 
             return $this->getFallbackOrdersStats();
         } catch (Throwable $e) {
+            // Capture l'erreur exacte renvoyée par le driver MongoDB
             $this->lastError = $e->getMessage();
             error_log("Erreur MongoDB getStatistiquesCommandesParMenu: " . $e->getMessage());
             return $this->getFallbackOrdersStats();
