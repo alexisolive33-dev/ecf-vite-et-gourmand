@@ -3,355 +3,321 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contact & Devis Personnalisé | Vite & Gourmand</title>
+    <title>Contact & Devis | Vite & Gourmand</title>
     <link rel="stylesheet" href="/css/style.css">
     <style>
-        .contact-layout {
+        .contact-grid {
             display: grid;
-            grid-template-columns: 1.1fr 0.9fr;
-            gap: 40px;
+            grid-template-columns: 1.25fr 1fr;
+            gap: 32px;
             align-items: start;
             margin-top: 32px;
-            margin-bottom: 60px;
         }
-
-        .contact-card-form {
-            background: var(--color-bg-card);
-            border: 1px solid var(--color-border);
-            border-top: 4px solid var(--color-primary);
-            border-radius: var(--radius-md);
-            box-shadow: var(--shadow-card);
+        @media (max-width: 900px) {
+            .contact-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        .contact-form-card {
+            background: #ffffff;
+            border: 1px solid #e5e0d8;
+            border-top: 4px solid #6b1d2f;
+            border-radius: 10px;
             padding: 32px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
         }
-
-        .contact-info-panel {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
+        .contact-form-card h2 {
+            font-family: Georgia, serif;
+            font-size: 1.45rem;
+            color: #1f2937;
+            margin-top: 0;
+            margin-bottom: 24px;
         }
-
-        .info-box-item {
-            background: var(--color-bg-card);
-            border: 1px solid var(--color-border);
-            border-left: 4px solid var(--color-secondary);
-            border-radius: var(--radius-md);
-            padding: 20px 24px;
-            box-shadow: var(--shadow-card);
+        .form-group-vg {
+            margin-bottom: 18px;
         }
-
-        .info-box-item h4 {
-            font-family: var(--font-sans);
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--color-text-title);
-            margin-bottom: 6px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .contact-field-group {
-            margin-bottom: 16px;
-        }
-
-        .contact-field-group label {
+        .form-label-vg {
             display: block;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
-            color: var(--color-text-title);
+            letter-spacing: 0.05em;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            color: #1f2937;
             margin-bottom: 6px;
         }
-
-        .contact-input,
-        .contact-textarea,
-        .contact-select {
+        .form-control-vg {
             width: 100%;
-            padding: 10px 14px;
-            border: 1px solid var(--color-border);
-            border-radius: var(--radius-sm);
-            font-family: var(--font-sans);
+            box-sizing: border-box;
+            padding: 11px 14px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
             font-size: 14px;
-            color: var(--color-text-title);
-            background-color: #FAFAFA;
-            transition: var(--transition-smooth);
+            font-family: inherit;
+            color: #111827;
+            background-color: #ffffff;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
-
-        .contact-input:focus,
-        .contact-textarea:focus,
-        .contact-select:focus {
+        .form-control-vg:focus {
             outline: none;
-            border-color: var(--color-primary);
-            background-color: #FFFFFF;
-            box-shadow: 0 0 0 3px rgba(114, 27, 41, 0.08);
+            border-color: #6b1d2f;
+            box-shadow: 0 0 0 3px rgba(107, 29, 47, 0.15);
         }
-
-        .contact-row-2 {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-        }
-
-        .rgpd-checkbox-label {
+        .rgpd-check-wrapper {
             display: flex;
             align-items: flex-start;
             gap: 10px;
-            font-size: 12px;
-            color: var(--color-text-muted);
-            margin: 18px 0;
+            margin: 20px 0 24px;
+            font-size: 12.5px;
+            color: #4b5563;
+            line-height: 1.45;
+        }
+        .rgpd-check-wrapper input[type="checkbox"] {
+            margin-top: 3px;
+            accent-color: #6b1d2f;
+            width: 16px;
+            height: 16px;
             cursor: pointer;
+        }
+        .btn-submit-vg {
+            width: 100%;
+            background-color: #6b1d2f;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 14px 20px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .btn-submit-vg:hover,
+        .btn-submit-vg:focus-visible {
+            background-color: #521423;
+        }
+        .btn-submit-vg:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+        }
+        .info-cards-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 18px;
+        }
+        .info-card-vg {
+            background: #ffffff;
+            border: 1px solid #e5e0d8;
+            border-left: 4px solid #b48327;
+            border-radius: 8px;
+            padding: 20px 24px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+        }
+        .info-card-vg h3 {
+            margin: 0 0 10px;
+            font-size: 15px;
+            color: #1f2937;
+        }
+        .info-card-vg p {
+            margin: 4px 0;
+            font-size: 13.5px;
+            color: #374151;
             line-height: 1.5;
         }
-
-        .rgpd-checkbox-label input {
-            margin-top: 2px;
-            accent-color: var(--color-primary);
+        .info-card-vg .muted-note {
+            font-size: 12px;
+            color: #6b7280;
+            margin-top: 8px;
         }
-
-        @media (max-width: 900px) {
-            .contact-layout, .contact-row-2 {
-                grid-template-columns: 1fr;
-            }
+        .info-card-delivery {
+            background: #eef8f1;
+            border-color: #cde8d5;
+            border-left: 4px solid #1e6b3b;
+        }
+        .info-card-delivery h3 {
+            color: #14532d;
         }
     </style>
 </head>
 <body>
-
-    <!-- Barre de Navigation -->
     <header class="header-nav">
         <div class="navbar-container">
             <a href="/" class="brand-wrapper">
                 <span class="brand-name">Vite & Gourmand</span>
                 <span class="brand-tagline">Traiteur événementiel • Bordeaux (25 ans)</span>
             </a>
-            <nav>
+            <nav aria-label="Navigation principale">
                 <ul class="nav-menu">
                     <li><a href="/" class="nav-link">Accueil</a></li>
                     <li><a href="/menus.html" class="nav-link">Nos Menus</a></li>
-                    <li><a href="/contact.html" class="nav-link active">Contact</a></li>
+                    <li><a href="/contact.html" class="nav-link active" aria-current="page">Contact</a></li>
                 </ul>
             </nav>
             <a href="/login.html" class="btn-connexion">Connexion</a>
         </div>
     </header>
 
-    <main class="container-1296 page-section">
-        
+    <main class="container-1296 page-section" id="contenu-principal">
         <div class="section-center-header">
-            <span class="surtitre-or">UNE QUESTION ? UN PROJET PARTICULIER ?</span>
-            <h2>Contactez Julie & José</h2>
+            <span class="surtitre-or" style="color: #8a6116;">UNE QUESTION ? UN PROJET PARTICULIER ?</span>
+            <h1>Contactez Julie & José</h1>
             <p>Notre atelier bordelais vous répond sous 24h ouvrées pour préparer vos réceptions sur-mesure.</p>
         </div>
 
-        <div class="contact-layout">
-            
-            <!-- Colonne 1 : Formulaire de Message -->
-            <section class="contact-card-form">
-                <h3 style="margin-bottom: 20px;">Envoyez-nous un message</h3>
+        <div class="contact-grid">
+            <!-- Colonne gauche : Formulaire conforme aux 3 champs exigés -->
+            <section class="contact-form-card" aria-labelledby="titre-formulaire-contact">
+                <h2 id="titre-formulaire-contact">Envoyez-nous un message</h2>
 
-                <div id="contact-alert-success" class="discount-applied-banner" style="display: none; margin-bottom: 20px;">
-                    ✅ Merci ! Votre message a été transmis à Julie & José. Nous vous recontacterons très rapidement.
+                <div id="contact-alert-success" role="status" aria-live="polite" style="display: none; background: #DCFCE7; color: #166534; border: 1px solid #86EFAC; padding: 12px 16px; border-radius: 6px; font-size: 13.5px; margin-bottom: 20px;">
+                    Votre demande a bien été envoyée par e-mail à Julie & José. Nous vous répondrons dans les plus brefs délais.
                 </div>
+                <div id="contact-alert-error" role="alert" aria-live="assertive" style="display: none; background: #FEE2E2; color: #991B1B; border: 1px solid #FCA5A5; padding: 12px 16px; border-radius: 6px; font-size: 13.5px; margin-bottom: 20px;"></div>
 
-                <div id="contact-alert-error" style="display: none; margin-bottom: 20px; padding: 12px 14px; background: #FEE2E2; border: 1px solid #FCA5A5; color: #991B1B; border-radius: 6px; font-size: 13px;"></div>
-
-                <form id="contact-form">
-                    <div class="contact-row-2">
-                        <div class="contact-field-group">
-                            <label for="contact-nom">Nom & Prénom *</label>
-                            <input type="text" id="contact-nom" class="contact-input" placeholder="Ex: Jean Dupont" required>
-                        </div>
-                        <div class="contact-field-group">
-                            <label for="contact-email">Adresse e-mail *</label>
-                            <input type="email" id="contact-email" class="contact-input" placeholder="jean.dupont@email.fr" required>
-                        </div>
+                <form id="form-contact" novalidate>
+                    <div class="form-group-vg">
+                        <label for="contact-titre" class="form-label-vg">Titre de votre demande *</label>
+                        <input type="text" id="contact-titre" name="titre" class="form-control-vg" required aria-required="true" placeholder="Ex : Demande de devis buffet mariage 50 convives">
                     </div>
 
-                    <div class="contact-row-2">
-                        <div class="contact-field-group">
-                            <label for="contact-telephone">Téléphone</label>
-                            <input type="tel" id="contact-telephone" class="contact-input" placeholder="Ex: 06 12 34 56 78">
-                        </div>
-                        <div class="contact-field-group">
-                            <label for="contact-type">Type d'événement</label>
-                            <select id="contact-type" class="contact-select">
-                                <option value="Événement Privé / Mariage">Événement Privé / Mariage</option>
-                                <option value="Buffet / Cocktail Entreprise">Buffet / Cocktail Entreprise</option>
-                                <option value="Repas de Fête de fin d'année">Repas de Fête de fin d'année</option>
-                                <option value="Autre demande sur-mesure">Autre demande sur-mesure</option>
-                            </select>
-                        </div>
+                    <div class="form-group-vg">
+                        <label for="contact-email" class="form-label-vg">Adresse e-mail *</label>
+                        <input type="email" id="contact-email" name="email" class="form-control-vg" required aria-required="true" placeholder="votre.email@exemple.fr" autocomplete="email">
                     </div>
 
-                    <div class="contact-field-group">
-                        <label for="contact-message">Votre message ou projet de réception *</label>
-                        <textarea id="contact-message" rows="5" class="contact-textarea" placeholder="Précisez la date envisagée, le lieu approximatif et le nombre d'invités..." required></textarea>
+                    <div class="form-group-vg">
+                        <label for="contact-description" class="form-label-vg">Description de votre demande *</label>
+                        <textarea id="contact-description" name="description" rows="5" class="form-control-vg" required aria-required="true" placeholder="Précisez la date envisagée, le lieu approximatif et le nombre d'invités..."></textarea>
                     </div>
 
-                    <!-- Mention RGAA & RGPD -->
-                    <label class="rgpd-checkbox-label">
-                        <input type="checkbox" id="contact-rgpd" required>
-                        <span>En soumettant ce formulaire, j'accepte que les informations saisies soient exploitées par Vite & Gourmand dans le cadre strict de ma demande de devis ou de renseignements.</span>
-                    </label>
+                    <div class="rgpd-check-wrapper">
+                        <input type="checkbox" id="contact-rgpd" required aria-required="true">
+                        <label for="contact-rgpd">
+                            En soumettant ce formulaire, j'accepte que les informations saisies soient exploitées par Vite &amp; Gourmand dans le cadre strict de ma demande de devis ou de renseignements. *
+                        </label>
+                    </div>
 
-                    <button type="submit" id="btn-submit-contact" class="btn-cta" style="width: 100%;">
+                    <button type="submit" id="btn-submit-contact" class="btn-submit-vg">
                         Envoyer ma demande &rarr;
                     </button>
                 </form>
             </section>
 
-            <!-- Colonne 2 : Coordonnées Directes & Réassurance -->
-            <aside class="contact-info-panel">
-                
-                <div class="info-box-item">
-                    <h4>📍 Notre Atelier Artisanal</h4>
-                    <p style="font-size: 13px; color: var(--color-text-body); margin-bottom: 6px;">
-                        12 Cours de l'Intendance<br>
-                        33000 Bordeaux (Gironde)
-                    </p>
-                    <small style="color: var(--color-text-muted);">Réceptions sur rendez-vous et dégustations de menu.</small>
+            <!-- Colonne droite : Informations pratiques -->
+            <aside class="info-cards-stack" aria-label="Coordonnées et informations pratiques">
+                <div class="info-card-vg">
+                    <h3><span aria-hidden="true">📍</span> Notre Atelier Artisanal</h3>
+                    <p>12 Cours de l'Intendance<br>33000 Bordeaux (Gironde)</p>
+                    <p class="muted-note">Réceptions sur rendez-vous et dégustations de menu.</p>
                 </div>
 
-                <div class="info-box-item">
-                    <h4>📞 Échange Direct</h4>
-                    <p style="font-size: 13px; color: var(--color-text-body); margin-bottom: 4px;">
-                        <strong>Téléphone :</strong> 05 56 XX XX XX
-                    </p>
-                    <p style="font-size: 13px; color: var(--color-text-body);">
-                        <strong>Courriel :</strong> contact@vitegourmand.fr
-                    </p>
+                <div class="info-card-vg">
+                    <h3><span aria-hidden="true">📞</span> Échange Direct</h3>
+                    <p><strong>Téléphone :</strong> 05 56 XX XX XX</p>
+                    <p><strong>Courriel :</strong> contact@vitegourmand.fr</p>
                 </div>
 
-                <div class="info-box-item">
-                    <h4>🕒 Permanence Traiteur</h4>
-                    <p style="font-size: 13px; color: var(--color-text-body); line-height: 1.6;">
-                        <strong>Lundi – Vendredi :</strong> 08h30 – 19h00<br>
-                        <strong>Samedi :</strong> 09h00 – 20h00<br>
-                        <strong>Dimanche :</strong> 09h00 – 15h00 (Livraisons programmées)
-                    </p>
+                <div class="info-card-vg">
+                    <h3><span aria-hidden="true">🕒</span> Permanence Traiteur</h3>
+                    <p><strong>Lundi – Vendredi :</strong> 08h30 – 19h00</p>
+                    <p><strong>Samedi :</strong> 09h00 – 20h00</p>
+                    <p><strong>Dimanche :</strong> 09h00 – 15h00 (Livraisons programmées)</p>
                 </div>
 
-                <div class="info-box-item" style="border-left-color: var(--badge-success-text); background-color: #F0FDF4;">
-                    <h4 style="color: var(--badge-success-text);">🚚 Zone de Livraison</h4>
-                    <p style="font-size: 12px; color: #166534; line-height: 1.5;">
-                        Livraison offerte dans Bordeaux intra-muros. Desserve de l'ensemble de la Gironde (Mérignac, Pessac, Libourne, Bassin d'Arcachon) selon barème kilométrique officiel.
-                    </p>
+                <div class="info-card-vg info-card-delivery">
+                    <h3><span aria-hidden="true">🚚</span> Zone de Livraison</h3>
+                    <p>Livraison offerte dans Bordeaux intra-muros. Desserte de l'ensemble de la Gironde (Mérignac, Pessac, Libourne, Bassin d'Arcachon) selon barème kilométrique officiel.</p>
                 </div>
-
             </aside>
-
         </div>
-
     </main>
 
-    <!-- Footer 3 colonnes -->
     <footer class="site-footer">
         <div class="container-1296">
             <div class="footer-columns">
                 <div class="footer-col">
                     <h4>Vite & Gourmand</h4>
                     <p>Traiteur événementiel depuis 25 ans à Bordeaux.</p>
-                    <p>12 Cours de l'Intendance, 33000 Bordeaux</p>
-                    <p>05 56 XX XX XX / contact@vitegourmand.fr</p>
                 </div>
                 <div class="footer-col center">
                     <h4>Nos Horaires d'Ouverture</h4>
                     <p><strong>Lundi au Vendredi :</strong> 08h30 – 19h00</p>
-                    <p><strong>Samedi :</strong> 09h00 – 20h00 (Prestations en continu)</p>
-                    <p><strong>Dimanche :</strong> 09h00 – 15h00 (Livraisons programmées)</p>
+                    <p><strong>Samedi :</strong> 09h00 – 20h00</p>
+                    <p><strong>Dimanche :</strong> 09h00 – 15h00</p>
                 </div>
                 <div class="footer-col">
                     <h4>Liens Utiles</h4>
                     <ul class="footer-links">
-                        <li><a href="/menus.html">Nos Menus Événementiels</a></li>
-                        <li><a href="/contact.html">Demande de Devis & Contact</a></li>
+                        <li><a href="/menus.html">Nos Menus</a></li>
+                        <li><a href="/contact.html">Contact</a></li>
                         <li><a href="/mentions-legales.html">Mentions Légales</a></li>
-                        <li><a href="/cgv.html">Conditions Générales de Vente (CGV)</a></li>
+                        <li><a href="/cgv.html">CGV</a></li>
                     </ul>
                 </div>
             </div>
             <div class="footer-bottom-bar">
-                &copy; 2026 Vite & Gourmand — Tous droits réservés. Réalisé par FastDev.
+                &copy; 2026 Vite & Gourmand — Tous droits réservés.
             </div>
         </div>
     </footer>
 
-    <!-- 1. Script Navbar global -->
-    <script src="/js/navbar.js"></script>
-
-    <!-- 2. Auto-remplissage et envoi API du formulaire de contact -->
     <script>
         document.addEventListener('DOMContentLoaded', () => {
-            const userProfileRaw = localStorage.getItem('user_profile') || localStorage.getItem('user');
-            let user = null;
-            try {
-                user = userProfileRaw ? JSON.parse(userProfileRaw) : null;
-            } catch (e) {
-                user = null;
-            }
+            const form = document.getElementById('form-contact');
+            if (!form) return;
 
-            if (user) {
-                const inputNom = document.getElementById('contact-nom');
-                const inputEmail = document.getElementById('contact-email');
-                const inputTel = document.getElementById('contact-telephone');
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const alertSuccess = document.getElementById('contact-alert-success');
+                const alertError = document.getElementById('contact-alert-error');
+                const btn = document.getElementById('btn-submit-contact');
+                const rgpdCheckbox = document.getElementById('contact-rgpd');
 
-                if (inputNom && !inputNom.value) inputNom.value = `${user.prenom || ''} ${user.nom || ''}`.trim();
-                if (inputEmail && !inputEmail.value && user.email) inputEmail.value = user.email;
-                if (inputTel && !inputTel.value && user.telephone) inputTel.value = user.telephone;
-            }
+                alertSuccess.style.display = 'none';
+                alertError.style.display = 'none';
 
-            const contactForm = document.getElementById('contact-form');
-            if (contactForm) {
-                contactForm.addEventListener('submit', async (e) => {
-                    e.preventDefault();
-                    const btn = document.getElementById('btn-submit-contact');
-                    const alertSuccess = document.getElementById('contact-alert-success');
-                    const alertError = document.getElementById('contact-alert-error');
+                const titre = document.getElementById('contact-titre').value.trim();
+                const email = document.getElementById('contact-email').value.trim();
+                const description = document.getElementById('contact-description').value.trim();
 
-                    if (alertSuccess) alertSuccess.style.display = 'none';
-                    if (alertError) alertError.style.display = 'none';
+                if (!titre || !email || !description) {
+                    alertError.textContent = 'Veuillez renseigner le titre, votre adresse e-mail et la description de votre demande.';
+                    alertError.style.display = 'block';
+                    return;
+                }
 
-                    btn.disabled = true;
-                    btn.textContent = 'Envoi en cours...';
+                if (!rgpdCheckbox.checked) {
+                    alertError.textContent = 'Veuillez accepter la mention RGPD avant d’envoyer votre demande.';
+                    alertError.style.display = 'block';
+                    return;
+                }
 
-                    const payload = {
-                        nom_complet: document.getElementById('contact-nom').value.trim(),
-                        email: document.getElementById('contact-email').value.trim(),
-                        telephone: document.getElementById('contact-telephone').value.trim(),
-                        type_evenement: document.getElementById('contact-type').value,
-                        message: document.getElementById('contact-message').value.trim()
-                    };
+                btn.disabled = true;
+                btn.textContent = 'Envoi en cours...';
 
-                    try {
-                        const res = await fetch('/api/contact', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify(payload)
-                        });
-                        const data = await res.json();
+                try {
+                    const res = await fetch('/api/contact', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ titre, email, description })
+                    });
+                    const data = await res.json();
 
-                        if (res.ok && data.statut === 'succes') {
-                            if (alertSuccess) alertSuccess.style.display = 'block';
-                            contactForm.reset();
-                        } else {
-                            if (alertError) {
-                                alertError.textContent = data.message || 'Impossible d\'envoyer votre message.';
-                                alertError.style.display = 'block';
-                            }
-                        }
-                    } catch (err) {
-                        if (alertError) {
-                            alertError.textContent = 'Erreur de communication avec le serveur.';
-                            alertError.style.display = 'block';
-                        }
-                    } finally {
-                        btn.disabled = false;
-                        btn.textContent = 'Envoyer ma demande →';
+                    if (res.ok && data.statut === 'succes') {
+                        alertSuccess.style.display = 'block';
+                        form.reset();
+                    } else {
+                        alertError.textContent = data.message || 'Une erreur est survenue lors de l’envoi.';
+                        alertError.style.display = 'block';
                     }
-                });
-            }
+                } catch (err) {
+                    alertError.textContent = 'Erreur de connexion au serveur.';
+                    alertError.style.display = 'block';
+                } finally {
+                    btn.disabled = false;
+                    btn.innerHTML = 'Envoyer ma demande &rarr;';
+                }
+            });
         });
     </script>
+    <script src="/js/navbar.js"></script>
 </body>
 </html>

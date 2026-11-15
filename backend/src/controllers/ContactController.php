@@ -20,19 +20,18 @@ class ContactController
      */
     public function creer(): void
     {
+        header('Content-Type: application/json; charset=utf-8');
         $input = json_decode(file_get_contents('php://input'), true) ?? [];
 
-        $nomComplet = trim((string)($input['nom_complet'] ?? ''));
+        $titre = trim((string)($input['titre'] ?? ''));
+        $description = trim((string)($input['description'] ?? ''));
         $email = trim((string)($input['email'] ?? ''));
-        $telephone = trim((string)($input['telephone'] ?? ''));
-        $typeEvenement = trim((string)($input['type_evenement'] ?? 'particulier'));
-        $message = trim((string)($input['message'] ?? ''));
 
-        if ($nomComplet === '' || $email === '' || $message === '') {
+        if ($titre === '' || $description === '' || $email === '') {
             http_response_code(400);
             echo json_encode([
                 'statut' => 'erreur',
-                'message' => 'Veuillez renseigner votre nom, votre adresse e-mail et votre message.'
+                'message' => 'Veuillez renseigner le titre, votre adresse e-mail et la description de votre demande.'
             ], JSON_UNESCAPED_UNICODE);
             return;
         }
@@ -48,18 +47,16 @@ class ContactController
 
         try {
             $id = $this->contactModel->creer([
-                'nom_complet'    => $nomComplet,
-                'email'          => $email,
-                'telephone'      => $telephone,
-                'type_evenement' => $typeEvenement,
-                'message'        => $message
+                'titre'       => $titre,
+                'description' => $description,
+                'email'       => $email
             ]);
 
             http_response_code(201);
             echo json_encode([
                 'statut' => 'succes',
                 'id' => $id,
-                'message' => 'Votre demande a bien été enregistrée et transmise à Julie & José.'
+                'message' => 'Votre demande a bien été enregistrée et transmise par e-mail à Julie & José.'
             ], JSON_UNESCAPED_UNICODE);
         } catch (Throwable $e) {
             http_response_code(500);
