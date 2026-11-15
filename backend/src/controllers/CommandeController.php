@@ -158,7 +158,7 @@ class CommandeController
         http_response_code(200);
         echo json_encode([
             'statut'  => 'succes',
-            'source'  => $repo->isConnected() ? 'MongoDB Atlas (NoSQL)' : 'Cache analytique NoSQL',
+            'source'  => $repo->isConnected() ? 'MongoDB Atlas (NoSQL)' : ('Repli : ' . ($repo->getLastError() ?? 'Erreur inconnue')),
             'donnees' => $donnees
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
