@@ -409,7 +409,7 @@
 
     <!-- Modale de modification d'une commande en attente (tout modifiable sauf le menu) -->
     <div id="modal-edit-commande-container" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
-        <div style="background: #FFFFFF; border-radius: var(--radius-md); padding: 28px; max-width: 520px; width: 92%; box-shadow: var(--shadow-modal); max-height: 90vh; overflow-y: auto;">
+        <div style="background: #FFFFFF; border-radius: var(--radius-md); padding: 28px; max-width: 540px; width: 92%; box-shadow: var(--shadow-modal); max-height: 92vh; overflow-y: auto;">
             <h3 style="margin-bottom: 6px;">Modifier ma commande</h3>
             <p style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 16px;">
                 Modifiable tant que Julie & José n'ont pas encore validé la prestation (le choix du menu reste fixe).
@@ -437,18 +437,32 @@
                 </div>
 
                 <div style="margin-bottom: 14px;">
-                    <label for="edit-cmd-adresse" style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Adresse de livraison *</label>
-                    <input type="text" id="edit-cmd-adresse" class="contact-input" required placeholder="Ex : 33 rue du Haut 33000">
+                    <label for="edit-cmd-adresse" style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Adresse de livraison (numéro et rue) *</label>
+                    <input type="text" id="edit-cmd-adresse" class="contact-input" required placeholder="Ex : 33 rue du Haut">
                 </div>
 
-                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px; margin-bottom: 20px;">
+                <div style="display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 10px; margin-bottom: 16px;">
                     <div>
-                        <label for="edit-cmd-ville" style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Ville de livraison *</label>
-                        <input type="text" id="edit-cmd-ville" class="contact-input" required placeholder="Bordeaux">
+                        <label for="edit-cmd-cp" style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Code postal *</label>
+                        <input type="text" id="edit-cmd-cp" class="contact-input" maxlength="5" pattern="[0-9]{5}" required placeholder="33000">
+                    </div>
+                    <div>
+                        <label for="edit-cmd-ville" style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Ville *</label>
+                        <input type="text" id="edit-cmd-ville" list="edit-villes-datalist" class="contact-input" required placeholder="Bordeaux">
+                        <datalist id="edit-villes-datalist"></datalist>
                     </div>
                     <div>
                         <label for="edit-cmd-distance" style="display: block; font-size: 12px; font-weight: 700; margin-bottom: 5px;">Distance (km) *</label>
                         <input type="number" id="edit-cmd-distance" class="contact-input" step="0.1" min="0" required>
+                    </div>
+                </div>
+
+                <!-- Aperçu dynamique de la réduction -10 % et du nouveau total -->
+                <div id="edit-cmd-recap" style="background: #FAF9F7; border: 1px solid var(--color-border); border-radius: 6px; padding: 12px 14px; margin-bottom: 18px; font-size: 12px;">
+                    <div id="edit-cmd-discount-info" style="margin-bottom: 6px;"></div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 6px; border-top: 1px dashed var(--color-border);">
+                        <span style="font-weight: 600; color: var(--color-text-title);">Nouveau Total TTC estimé :</span>
+                        <strong id="edit-cmd-total-preview" style="font-size: 16px; color: var(--color-primary);">0,00 €</strong>
                     </div>
                 </div>
 
@@ -522,6 +536,6 @@
         </div>
     </footer>
 
-    <script src="/js/compte.js?v=2"></script>
+    <script src="/js/compte.js?v=3"></script>
 </body>
 </html>

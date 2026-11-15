@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const currentUserId = user.id || user.utilisateur_id;
     let commandesDejaNotees = new Set();
     let commandesCache = [];
+    let commandeEnEdition = null;
 
     majNavbar(user);
     const welcomeTitle = document.getElementById('user-welcome-title');
@@ -144,6 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const nbConvivesAffiche = cmd.nb_convives || (cmd.articles && cmd.articles[0] && cmd.articles[0].nb_convives) || '-';
+            const remiseMontant = parseFloat(cmd.montant_remise || 0);
 
             let badgeClass = 'status-en-attente';
             let libelleStatut = 'En attente';
@@ -202,7 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="order-pricing">
                         <div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px;">Montant Total TTC</div>
                         <div class="order-total">${parseFloat(cmd.total_ttc || 0).toFixed(2).replace('.', ',')} €</div>
-                        <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px;">Dont livraison : ${parseFloat(cmd.frais_livraison || 0).toFixed(2).replace('.', ',')} €</div>
+                        ${remiseMontant > 0 ? `<div style="font-size: 11px; color: #166534; font-weight: 700; margin-top: 2px;">Dont remise -10 % : -${remiseMontant.toFixed(2).replace('.', ',')} €</div>` : ''}
+                        <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 3px;">Dont livraison : ${parseFloat(cmd.frais_livraison || 0).toFixed(2).replace('.', ',')} €</div>
                     </div>
                 </div>
 
@@ -307,16 +310,125 @@ document.addEventListener('DOMContentLoaded', () => {
         return `<div class="timeline-tracker">${stepsHtml}</div>`;
     }
 
+    // Calcul de distance Haversine depuis Bordeaux (12 Cours de l'Intendance)
+    function calculerDistanceDepuisBordeaux(lat, lon) {
+        const latBdx = 44.8412;
+        const lonBdx = -0.5750;
+        const R = 6371;
+        const dLat = (lat - latBdx) * Math.PI / 180;
+        const dLon = (lon - lonBdx) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2)
+                + Math.cos(latBdx * Math.PI / 180) * Math.cos(lat * Math.PI / 180)
+                * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return Math.round(R * c * 1.2 * 10) / 10;
+    }
+
+    async function rechercherVilleParCodePostal(cp) {
+        const inputVille = document.getElementById('edit-cmd-ville');
+        const datalist = document.getElementById('edit-villes-datalist');
+        const inputDistance = document.getElementById('edit-cmd-distance');
+        if (!/^\d{5}$/.test(cp)) return;
+
+        try {
+            const res = await fetch(`https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom,centre&format=json`);
+            if (!res.ok) return;
+            const communes = await res.json();
+
+            if (Array.isArray(communes) && communes.length > 0) {
+                if (datalist) {
+                    datalist.innerHTML = communes.map(c => `<option value="${c.nom}">`).join('');
+                }
+                const communePrincipale = communes[0];
+                if (inputVille) {
+                    inputVille.value = communePrincipale.nom;
+                }
+                if (inputDistance) {
+                    if (communePrincipale.nom.toLowerCase() === 'bordeaux') {
+                        inputDistance.value = '0';
+                    } else if (communePrincipale.centre && Array.isArray(communePrincipale.centre.coordinates)) {
+                        const [lon, lat] = communePrincipale.centre.coordinates;
+                        inputDistance.value = String(calculerDistanceDepuisBordeaux(lat, lon));
+                    }
+                }
+                recalculerApercuModification();
+            }
+        } catch (err) {
+            console.error('Erreur recherche code postal:', err);
+        }
+    }
+
+    function recalculerApercuModification() {
+        if (!commandeEnEdition) return;
+        const convivesMin = parseInt(commandeEnEdition.convives_min || 4, 10);
+        const prixUnit = parseFloat(commandeEnEdition.prix_unitaire_ttc || commandeEnEdition.prix_unitaire_facture || 0);
+
+        const nbConvives = parseInt(document.getElementById('edit-cmd-convives').value, 10) || convivesMin;
+        const ville = (document.getElementById('edit-cmd-ville').value || '').trim().toLowerCase();
+        const distance = parseFloat(document.getElementById('edit-cmd-distance').value) || 0;
+
+        const sousTotalBrut = nbConvives * prixUnit;
+        const seuilReduction = convivesMin + 5;
+        const aDroitReduction = nbConvives >= seuilReduction;
+        const remise = aDroitReduction ? (sousTotalBrut * 0.10) : 0;
+        const fraisLivraison = (ville === 'bordeaux' || ville === '') ? 0 : (5 + distance * 0.59);
+        const totalEstime = Math.max(0, sousTotalBrut - remise + fraisLivraison);
+
+        const discountInfoEl = document.getElementById('edit-cmd-discount-info');
+        const totalPreviewEl = document.getElementById('edit-cmd-total-preview');
+
+        if (discountInfoEl) {
+            if (aDroitReduction) {
+                discountInfoEl.innerHTML = `
+                    <span style="display: inline-block; background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 10px; border-radius: 999px;">
+                        🎉 Réduction -10 % appliquée (-${remise.toFixed(2).replace('.', ',')} €) pour +5 convives au-dessus du minimum !
+                    </span>
+                `;
+            } else {
+                const manquants = seuilReduction - nbConvives;
+                discountInfoEl.innerHTML = `
+                    <span style="color: #7A5810;">
+                        💡 Ajoutez encore <strong>${manquants} convive${manquants > 1 ? 's' : ''}</strong> (dès ${seuilReduction} convives) pour bénéficier de <strong>-10 %</strong> sur les repas.
+                    </span>
+                `;
+            }
+        }
+
+        if (totalPreviewEl) {
+            totalPreviewEl.textContent = `${totalEstime.toFixed(2).replace('.', ',')} €`;
+        }
+    }
+
     function initialiserModalEditionCommande() {
         const modal = document.getElementById('modal-edit-commande-container');
         const btnClose = document.getElementById('btn-close-edit-cmd');
         const form = document.getElementById('form-edit-commande');
+        const inputCp = document.getElementById('edit-cmd-cp');
+        const inputConvives = document.getElementById('edit-cmd-convives');
+        const inputVille = document.getElementById('edit-cmd-ville');
+        const inputDistance = document.getElementById('edit-cmd-distance');
 
         if (btnClose && modal) {
             btnClose.addEventListener('click', () => {
                 modal.style.display = 'none';
             });
         }
+
+        if (inputCp) {
+            inputCp.addEventListener('input', (e) => {
+                const cp = e.target.value.replace(/\D/g, '').slice(0, 5);
+                e.target.value = cp;
+                if (cp.length === 5) {
+                    rechercherVilleParCodePostal(cp);
+                }
+            });
+        }
+
+        [inputConvives, inputVille, inputDistance].forEach(el => {
+            if (el) {
+                el.addEventListener('input', recalculerApercuModification);
+            }
+        });
 
         if (form) {
             form.addEventListener('submit', async (e) => {
@@ -339,6 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     nb_convives: parseInt(document.getElementById('edit-cmd-convives').value, 10),
                     date_livraison: dateFormatted,
                     adresse_livraison: document.getElementById('edit-cmd-adresse').value.trim(),
+                    code_postal: document.getElementById('edit-cmd-cp').value.trim(),
                     ville_livraison: document.getElementById('edit-cmd-ville').value.trim(),
                     distance_km: parseFloat(document.getElementById('edit-cmd-distance').value) || 0
                 };
@@ -382,6 +495,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function ouvrirModalEditionCommande(cmd) {
+        commandeEnEdition = cmd;
         const modal = document.getElementById('modal-edit-commande-container');
         const errorBox = document.getElementById('edit-cmd-error');
         if (errorBox) errorBox.style.display = 'none';
@@ -390,7 +504,18 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-cmd-menu').value = cmd.menu_titre || 'Formule Traiteur';
         document.getElementById('edit-cmd-convives').value = cmd.nb_convives || cmd.convives_min || 4;
         document.getElementById('edit-cmd-convives').min = cmd.convives_min || 1;
-        document.getElementById('edit-cmd-adresse').value = cmd.adresse_livraison || '';
+
+        // Extraction automatique du code postal s'il est présent à la fin de l'adresse
+        const rawAdresse = String(cmd.adresse_livraison || '').trim();
+        const matchCp = rawAdresse.match(/^(.*?)\s+(\d{5})$/);
+        if (matchCp) {
+            document.getElementById('edit-cmd-adresse').value = matchCp[1];
+            document.getElementById('edit-cmd-cp').value = matchCp[2];
+        } else {
+            document.getElementById('edit-cmd-adresse').value = rawAdresse;
+            document.getElementById('edit-cmd-cp').value = user.code_postal || '33000';
+        }
+
         document.getElementById('edit-cmd-ville').value = cmd.ville_livraison || cmd.ville || 'Bordeaux';
         document.getElementById('edit-cmd-distance').value = cmd.distance_km ?? 0;
 
@@ -399,6 +524,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('edit-cmd-date').value = String(rawDate).replace(' ', 'T').slice(0, 16);
         }
 
+        recalculerApercuModification();
         if (modal) modal.style.display = 'flex';
     }
 

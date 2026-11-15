@@ -261,12 +261,17 @@ class CommandeController
             $dateLivraison = trim((string)($donnees['date_livraison'] ?? ''));
             $ville = trim((string)($donnees['ville_livraison'] ?? $donnees['ville'] ?? ''));
             $adresse = trim((string)($donnees['adresse_livraison'] ?? ''));
+            $codePostal = trim((string)($donnees['code_postal'] ?? ''));
 
             if ($adresse === '' || $ville === '') {
                 http_response_code(422);
                 echo json_encode(['statut' => 'erreur', 'message' => 'L’adresse et la ville de livraison sont obligatoires.'], JSON_UNESCAPED_UNICODE);
                 return;
             }
+
+            $adresseComplete = ($codePostal !== '' && !str_ends_with($adresse, $codePostal))
+                ? trim($adresse . ' ' . $codePostal)
+                : $adresse;
 
             $simulation = $this->calculator->calculer($menu, $nbConvives, $distanceKm, $dateLivraison, $ville);
 
@@ -280,7 +285,7 @@ class CommandeController
                 return;
             }
 
-            $resultat = $this->commandeModel->modifierCommande($id, $userId, $simulation['details'], $adresse, $isStaff);
+            $resultat = $this->commandeModel->modifierCommande($id, $userId, $simulation['details'], $adresseComplete, $isStaff);
 
             http_response_code(200);
             echo json_encode([
@@ -325,8 +330,10 @@ class CommandeController
                 SELECT c.*, 
                        lc.menu_id,
                        COALESCE(lc.nb_convives, 0) AS nb_convives,
+                       lc.prix_unitaire_facture,
                        c.date_livraison_souhaitee AS date_livraison,
                        COALESCE(m.titre, 'Formule Traiteur') AS menu_titre, 
+                       m.prix_unitaire_ttc,
                        m.convives_min,
                        m.theme, 
                        m.image_url
@@ -339,7 +346,6 @@ class CommandeController
             $stmt->execute([':uid' => $userId]);
             $commandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-            // Récupération de l'historique horodaté des statuts pour chaque commande
             $stmtHist = null;
             try {
                 $stmtHist = $pdo->prepare("
