@@ -207,6 +207,12 @@ if ($uri === '/api/commandes/mes-commandes' && $method === 'GET') {
     exit;
 }
 
+// Espace Client - Modification d'une commande en attente (sauf le menu)
+if (preg_match('#^/api/commandes/([0-9]+)$#', $uri, $matches) && $method === 'PUT') {
+    (new CommandeController())->modifier((int)$matches[1]);
+    exit;
+}
+
 // Espace Client - Annulation de commande
 if (preg_match('#^/api/commandes/([0-9]+)/annuler$#', $uri, $matches) && $method === 'PUT') {
     (new CommandeController())->annulerCommande((int)$matches[1]);

@@ -22,9 +22,6 @@ class CommandeController
         $this->calculator = new OrderCalculatorService();
     }
 
-    /**
-     * Helper de connexion PDO universel et résilient
-     */
     private function getPdo(): PDO
     {
         $dbClass = class_exists('\\App\\Config\\Database') ? '\\App\\Config\\Database' : (class_exists('\\Database') ? '\\Database' : null);
@@ -217,6 +214,93 @@ class CommandeController
     }
 
     /**
+     * Endpoint : PUT /api/commandes/{id} (Modification tant que la commande est en attente, sauf le menu)
+     */
+    public function modifier(int $id): void
+    {
+        header('Content-Type: application/json; charset=utf-8');
+        $donnees = json_decode(file_get_contents('php://input'), true);
+
+        if (!$donnees) {
+            http_response_code(400);
+            echo json_encode(['statut' => 'erreur', 'message' => 'Corps JSON invalide.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $authUser = AuthGuard::getAuthenticatedUser();
+        $userId = $authUser ? (int)$authUser['id'] : (int)($donnees['utilisateur_id'] ?? 0);
+        $isStaff = $authUser && in_array($authUser['role'], ['admin', 'employe'], true);
+
+        if (!$isStaff && $userId <= 0) {
+            http_response_code(401);
+            echo json_encode(['statut' => 'erreur', 'message' => 'Authentification requise.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        try {
+            $pdo = $this->getPdo();
+            $stmtMenuId = $pdo->prepare("SELECT menu_id FROM ligne_commande WHERE commande_id = :id LIMIT 1");
+            $stmtMenuId->execute([':id' => $id]);
+            $ligne = $stmtMenuId->fetch(PDO::FETCH_ASSOC);
+
+            if (!$ligne) {
+                http_response_code(404);
+                echo json_encode(['statut' => 'erreur', 'message' => 'Ligne de commande introuvable.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $menu = $this->menuModel->findById((int)$ligne['menu_id']);
+            if (!$menu) {
+                http_response_code(404);
+                echo json_encode(['statut' => 'erreur', 'message' => 'Le menu associé n’est plus disponible.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $nbConvives = (int)($donnees['nb_convives'] ?? 0);
+            $distanceKm = (float)($donnees['distance_km'] ?? 0);
+            $dateLivraison = trim((string)($donnees['date_livraison'] ?? ''));
+            $ville = trim((string)($donnees['ville_livraison'] ?? $donnees['ville'] ?? ''));
+            $adresse = trim((string)($donnees['adresse_livraison'] ?? ''));
+
+            if ($adresse === '' || $ville === '') {
+                http_response_code(422);
+                echo json_encode(['statut' => 'erreur', 'message' => 'L’adresse et la ville de livraison sont obligatoires.'], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $simulation = $this->calculator->calculer($menu, $nbConvives, $distanceKm, $dateLivraison, $ville);
+
+            if (!$simulation['valide']) {
+                http_response_code(422);
+                echo json_encode([
+                    'statut'  => 'invalide',
+                    'message' => implode(' ', $simulation['erreurs']),
+                    'erreurs' => $simulation['erreurs']
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+
+            $resultat = $this->commandeModel->modifierCommande($id, $userId, $simulation['details'], $adresse, $isStaff);
+
+            http_response_code(200);
+            echo json_encode([
+                'statut'   => 'succes',
+                'message'  => 'Votre commande a été modifiée avec succès.',
+                'commande' => $resultat,
+                'details_calcul' => $simulation['details']
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+
+        } catch (Exception $e) {
+            $code = in_array($e->getCode(), [403, 404, 422], true) ? $e->getCode() : 500;
+            http_response_code($code);
+            echo json_encode([
+                'statut'  => 'erreur',
+                'message' => $e->getMessage()
+            ], JSON_UNESCAPED_UNICODE);
+        }
+    }
+
+    /**
      * Endpoint : GET /api/commandes/mes-commandes?utilisateur_id=X
      */
     public function mesCommandes(): void
@@ -239,9 +323,11 @@ class CommandeController
 
             $stmt = $pdo->prepare("
                 SELECT c.*, 
+                       lc.menu_id,
                        COALESCE(lc.nb_convives, 0) AS nb_convives,
                        c.date_livraison_souhaitee AS date_livraison,
                        COALESCE(m.titre, 'Formule Traiteur') AS menu_titre, 
+                       m.convives_min,
                        m.theme, 
                        m.image_url
                 FROM commande c
@@ -252,6 +338,39 @@ class CommandeController
             ");
             $stmt->execute([':uid' => $userId]);
             $commandes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Récupération de l'historique horodaté des statuts pour chaque commande
+            $stmtHist = null;
+            try {
+                $stmtHist = $pdo->prepare("
+                    SELECT statut, date_changement
+                    FROM commande_historique
+                    WHERE commande_id = :cid
+                    ORDER BY date_changement ASC, id ASC
+                ");
+            } catch (Exception $eHistInit) {
+                $stmtHist = null;
+            }
+
+            foreach ($commandes as &$cmd) {
+                $historique = [];
+                if ($stmtHist) {
+                    try {
+                        $stmtHist->execute([':cid' => $cmd['id']]);
+                        $historique = $stmtHist->fetchAll(PDO::FETCH_ASSOC);
+                    } catch (Exception $eHistExec) {
+                        $historique = [];
+                    }
+                }
+                if (empty($historique)) {
+                    $historique = [[
+                        'statut'          => $cmd['statut'],
+                        'date_changement' => $cmd['date_commande']
+                    ]];
+                }
+                $cmd['historique'] = $historique;
+            }
+            unset($cmd);
 
             http_response_code(200);
             echo json_encode([
@@ -301,11 +420,9 @@ class CommandeController
                 return;
             }
 
-            // Normalisation du statut actuel pour vérification
             $statutActuel = mb_strtolower(trim($cmd['statut'] ?? ''));
             $statutNettoye = str_replace(['_', ' '], '', $statutActuel);
 
-            // Annulable uniquement si la commande est encore en attente
             $estEnAttente = in_array($statutActuel, ['en_attente', 'en attente', 'creee', 'cree'], true) 
                          || strpos($statutNettoye, 'attente') !== false;
 
@@ -318,11 +435,15 @@ class CommandeController
                 return;
             }
 
-            // 1. Mise à jour vers le statut normalisé 'annulee'
             $update = $pdo->prepare("UPDATE commande SET statut = 'annulee' WHERE id = :id");
             $update->execute([':id' => $id]);
 
-            // 2. Restitution automatique du stock_disponible dans la table menu
+            try {
+                $stmtHist = $pdo->prepare("INSERT INTO commande_historique (commande_id, statut, date_changement) VALUES (:id, 'annulee', NOW())");
+                $stmtHist->execute([':id' => $id]);
+            } catch (Exception $eHist) {
+            }
+
             try {
                 $stmtLignes = $pdo->prepare("SELECT menu_id FROM ligne_commande WHERE commande_id = :id");
                 $stmtLignes->execute([':id' => $id]);
@@ -335,7 +456,6 @@ class CommandeController
                     }
                 }
             } catch (Exception $eStock) {
-                // Secours en cas de structure alternative
             }
 
             http_response_code(200);

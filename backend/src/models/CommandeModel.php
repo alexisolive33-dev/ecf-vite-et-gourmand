@@ -1,212 +1,506 @@
-<?php
+document.addEventListener('DOMContentLoaded', () => {
+    // 1. Contrôle d'accès et authentification
+    const authToken = localStorage.getItem('auth_token') || localStorage.getItem('token');
+    const userProfileRaw = localStorage.getItem('user_profile') || localStorage.getItem('user');
+    let user = null;
 
-namespace App\Models;
-
-use App\Config\Database;
-use PDO;
-use Exception;
-
-class CommandeModel
-{
-    private PDO $db;
-
-    // Statuts autorisés par l'énumération SQL
-    private const STATUTS_VALIDES = ['en_attente', 'validee', 'en_preparation', 'livree', 'annulee'];
-
-    public function __construct()
-    {
-        $this->db = Database::getConnection();
+    try {
+        user = userProfileRaw ? JSON.parse(userProfileRaw) : null;
+    } catch (e) {
+        user = null;
     }
 
-    /**
-     * Récupère toutes les commandes avec les coordonnées client et les lignes associées
-     */
-    public function findAll(): array
-    {
-        $sql = "
-            SELECT 
-                c.id, 
-                c.numero_commande, 
-                c.date_commande, 
-                c.date_livraison_souhaitee, 
-                c.adresse_livraison, 
-                c.ville_livraison, 
-                c.distance_km, 
-                c.frais_livraison, 
-                c.sous_total_repas, 
-                c.montant_remise, 
-                c.total_ttc, 
-                c.statut,
-                u.id AS client_id,
-                u.nom AS client_nom,
-                u.prenom AS client_prenom,
-                u.email AS client_email
-            FROM commande c
-            INNER JOIN utilisateur u ON u.id = c.utilisateur_id
-            ORDER BY c.date_commande DESC
-        ";
+    if (!authToken || !user) {
+        window.location.href = '/login.html?redirect=' + encodeURIComponent('/compte.html');
+        return;
+    }
 
-        $stmt = $this->db->query($sql);
-        $commandes = $stmt->fetchAll();
+    const currentUserId = user.id || user.utilisateur_id;
+    let commandesDejaNotees = new Set();
 
-        // Récupération des lignes de commande pour chaque commande
-        $stmtLignes = $this->db->prepare("
-            SELECT lc.id, lc.menu_id, m.titre AS menu_titre, lc.nb_convives, lc.prix_unitaire_facture, lc.taux_remise_applique
-            FROM ligne_commande lc
-            INNER JOIN menu m ON m.id = lc.menu_id
-            WHERE lc.commande_id = :commande_id
-        ");
+    majNavbar(user);
+    const welcomeTitle = document.getElementById('user-welcome-title');
+    if (welcomeTitle) {
+        welcomeTitle.textContent = `Bienvenue, ${user.prenom || ''} ${user.nom || ''}`;
+    }
 
-        foreach ($commandes as &$cmd) {
-            $stmtLignes->execute([':commande_id' => $cmd['id']]);
-            $cmd['articles'] = $stmtLignes->fetchAll();
+    // 2. Gestion des onglets
+    const tabBtns = document.querySelectorAll('.tab-btn');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-tab');
+
+            tabBtns.forEach(b => b.classList.remove('active'));
+            tabContents.forEach(c => c.classList.remove('active'));
+
+            btn.classList.add('active');
+            const targetContent = document.getElementById(targetId);
+            if (targetContent) targetContent.classList.add('active');
+        });
+    });
+
+    // 3. Initialisation des formulaires et des données
+    initialiserProfilForm(user, currentUserId);
+    chargerMesCommandes(currentUserId);
+    initialiserGestionAvis();
+
+    // ==========================================
+    // GESTION DES COMMANDES (HISTORIQUE & SUIVI)
+    // ==========================================
+    function chargerMesCommandes(userId) {
+        const loadingEl = document.getElementById('orders-loading');
+        const emptyEl = document.getElementById('orders-empty');
+        const listEl = document.getElementById('orders-list');
+
+        const reqCommandes = fetch(`/api/commandes/mes-commandes?utilisateur_id=${userId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        }).then(async res => {
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message || `Erreur HTTP ${res.status}`);
+            return data;
+        });
+
+        const reqAvis = fetch(`/api/avis/mes-avis?utilisateur_id=${userId}`, {
+            headers: { 'Authorization': `Bearer ${authToken}` }
+        })
+            .then(res => res.json())
+            .catch(() => ({ commandes_notees: [] }));
+
+        Promise.all([reqCommandes, reqAvis])
+            .then(([resCmd, resAvis]) => {
+                if (loadingEl) loadingEl.style.display = 'none';
+
+                if (resAvis && Array.isArray(resAvis.commandes_notees)) {
+                    commandesDejaNotees = new Set(resAvis.commandes_notees.map(id => Number(id)));
+                }
+
+                if (resCmd.statut === 'succes' && resCmd.commandes && resCmd.commandes.length > 0) {
+                    if (emptyEl) emptyEl.style.display = 'none';
+                    afficherCommandes(resCmd.commandes, listEl);
+                } else {
+                    if (emptyEl) emptyEl.style.display = 'block';
+                    if (listEl) listEl.innerHTML = '';
+                }
+            })
+            .catch(err => {
+                console.error('Erreur API commandes:', err);
+                if (loadingEl) {
+                    loadingEl.innerHTML = `<p style="color: var(--color-primary);">Impossible de charger vos commandes : ${err.message}</p>`;
+                }
+            });
+    }
+
+    function badgeAvisEnvoyeHtml() {
+        return `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: #DCFCE7; color: #166534; border-radius: 6px; font-size: 12px; font-weight: 700;">✓ Avis déjà envoyé</span>`;
+    }
+
+    function marquerCommandeCommeNotee(cmdId) {
+        commandesDejaNotees.add(Number(cmdId));
+        const btn = document.querySelector(`.btn-avis-order[data-id="${cmdId}"]`);
+        if (btn) {
+            btn.outerHTML = badgeAvisEnvoyeHtml();
         }
-
-        return $commandes;
     }
 
-    /**
-     * Met à jour le statut d'une commande
-     */
-    public function updateStatut(int $id, string $nouveauStatut): bool
-    {
-        if (!in_array($nouveauStatut, self::STATUTS_VALIDES, true)) {
-            throw new Exception("Statut '$nouveauStatut' invalide. Statuts acceptés : " . implode(', ', self::STATUTS_VALIDES));
-        }
+    function afficherCommandes(commandes, container) {
+        if (!container) return;
+        container.innerHTML = '';
 
-        $stmt = $this->db->prepare("
-            UPDATE commande 
-            SET statut = :statut 
-            WHERE id = :id
-        ");
+        commandes.forEach(cmd => {
+            const card = document.createElement('article');
+            card.className = 'order-card';
 
-        return $stmt->execute([
-            ':statut' => $nouveauStatut,
-            ':id'     => $id
-        ]);
-    }
-
-    /**
-     * Enregistre une commande complète dans une transaction SQL sécurisée
-     */
-    public function creerCommande(array $client, array $simulation): array
-    {
-        $this->db->beginTransaction();
-
-        try {
-            $menuId = (int)$simulation['menu_id'];
-
-            // 1. Verrouillage pessimiste de la ligne menu
-            $stmtLock = $this->db->prepare("
-                SELECT stock_disponible 
-                FROM menu 
-                WHERE id = :id 
-                FOR UPDATE
-            ");
-            $stmtLock->execute([':id' => $menuId]);
-            $menu = $stmtLock->fetch();
-
-            if (!$menu || (int)$menu['stock_disponible'] <= 0) {
-                throw new Exception("Le stock disponible pour ce menu est épuisé.");
+            const rawStatut = (cmd.statut || 'en_attente').toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            
+            const rawDateCreation = cmd.date_creation || cmd.date_commande || cmd.created_at;
+            const dateCreation = rawDateCreation ? new Date(rawDateCreation.replace(' ', 'T')).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Récemment';
+            
+            const rawDatePrestation = cmd.date_livraison_souhaitee || cmd.date_livraison;
+            let datePrestation = 'Non précisée';
+            if (rawDatePrestation) {
+                const d = new Date(rawDatePrestation.replace(' ', 'T'));
+                datePrestation = !isNaN(d.getTime())
+                    ? d.toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                    : rawDatePrestation;
             }
 
-            // 2. Décrémentation du stock
-            $stmtStock = $this->db->prepare("
-                UPDATE menu 
-                SET stock_disponible = stock_disponible - 1 
-                WHERE id = :id
-            ");
-            $stmtStock->execute([':id' => $menuId]);
+            const nbConvivesAffiche = cmd.nb_convives || (cmd.articles && cmd.articles[0] && cmd.articles[0].nb_convives) || '-';
 
-            // 3. Numéro unique
-            $numeroCommande = 'VG-' . date('Ymd') . '-' . strtoupper(substr(bin2hex(random_bytes(2)), 0, 4));
-            $adresseComplete = trim(($client['adresse_livraison'] ?? '') . ' ' . ($client['code_postal'] ?? ''));
+            let badgeClass = 'status-en-attente';
+            let libelleStatut = 'En attente';
 
-            // 4. Insertion commande
-            $sqlCommande = "
-                INSERT INTO commande (
-                    numero_commande, 
-                    utilisateur_id, 
-                    date_livraison_souhaitee, 
-                    adresse_livraison, 
-                    ville_livraison, 
-                    distance_km, 
-                    frais_livraison, 
-                    sous_total_repas, 
-                    montant_remise, 
-                    total_ttc, 
-                    statut
-                ) VALUES (
-                    :numero, 
-                    :utilisateur_id, 
-                    :date_livraison_souhaitee, 
-                    :adresse_livraison, 
-                    :ville_livraison, 
-                    :distance_km, 
-                    :frais_livraison, 
-                    :sous_total_repas, 
-                    :montant_remise, 
-                    :total_ttc, 
-                    'en_attente'
-                )
-            ";
-
-            $stmtCmd = $this->db->prepare($sqlCommande);
-            $stmtCmd->execute([
-                ':numero'                   => $numeroCommande,
-                ':utilisateur_id'           => $client['utilisateur_id'] ?? 2,
-                ':date_livraison_souhaitee' => $simulation['date_livraison'],
-                ':adresse_livraison'        => $adresseComplete ?: '14 Avenue du Château 33700',
-                ':ville_livraison'          => $simulation['ville_livraison'],
-                ':distance_km'              => $simulation['distance_km'],
-                ':frais_livraison'          => $simulation['frais_livraison'],
-                ':sous_total_repas'         => $simulation['sous_total_net'],
-                ':montant_remise'           => $simulation['montant_remise'],
-                ':total_ttc'                => $simulation['total_ttc']
-            ]);
-
-            $commandeId = (int)$this->db->lastInsertId();
-
-            // 5. Insertion ligne commande
-            $sqlLigne = "
-                INSERT INTO ligne_commande (
-                    commande_id, 
-                    menu_id, 
-                    nb_convives, 
-                    prix_unitaire_facture, 
-                    taux_remise_applique
-                ) VALUES (
-                    :commande_id, 
-                    :menu_id, 
-                    :nb_convives, 
-                    :prix_unitaire_facture, 
-                    :taux_remise_applique
-                )
-            ";
-
-            $stmtLigne = $this->db->prepare($sqlLigne);
-            $stmtLigne->execute([
-                ':commande_id'           => $commandeId,
-                ':menu_id'               => $menuId,
-                ':nb_convives'           => $simulation['nb_convives'],
-                ':prix_unitaire_facture' => $simulation['prix_unitaire_ttc'],
-                ':taux_remise_applique'  => $simulation['taux_remise']
-            ]);
-
-            $this->db->commit();
-
-            return [
-                'commande_id'     => $commandeId,
-                'numero_commande' => $numeroCommande,
-                'statut'          => 'en_attente',
-                'total_ttc'       => $simulation['total_ttc']
-            ];
-
-        } catch (Exception $e) {
-            if ($this->db->inTransaction()) {
-                $this->db->rollBack();
+            if (rawStatut.includes('valid') || rawStatut.includes('accept')) {
+                badgeClass = 'status-accepte';
+                libelleStatut = 'Validée';
+            } else if (rawStatut.includes('prep')) {
+                badgeClass = 'status-en-preparation';
+                libelleStatut = 'En préparation';
+            } else if (rawStatut.includes('livr')) {
+                badgeClass = 'status-livre';
+                libelleStatut = 'Livrée';
+            } else if (rawStatut.includes('annul')) {
+                badgeClass = 'status-annulee';
+                libelleStatut = 'Annulée';
             }
-            throw $e;
+
+            const peutAnnuler = rawStatut.includes('attente') || rawStatut === 'creee' || rawStatut === 'cree';
+            const estTerminee = rawStatut.includes('livr') || rawStatut.includes('term');
+            const dejaNotee = commandesDejaNotees.has(Number(cmd.id));
+
+            const timelineHtml = genererTimeline(rawStatut);
+
+            let actionAvisHtml = '';
+            if (estTerminee) {
+                actionAvisHtml = dejaNotee
+                    ? badgeAvisEnvoyeHtml()
+                    : `<button type="button" class="btn-avis-order" data-id="${cmd.id}">★ Laisser un avis</button>`;
+            }
+
+            card.innerHTML = `
+                <div class="order-card-header">
+                    <div>
+                        <span class="order-num">Commande n° ${cmd.numero_commande || ('CMD-' + cmd.id)}</span>
+                        <div class="order-date">Enregistrée le ${dateCreation}</div>
+                    </div>
+                    <div>
+                        <span class="status-badge ${badgeClass}">${libelleStatut}</span>
+                    </div>
+                </div>
+
+                <div class="order-card-body">
+                    <img src="${cmd.image_url || '/assets/images/menus/default-menu.webp'}" 
+                         alt="Menu ${cmd.menu_titre || 'Gourmand'}" 
+                         class="order-thumb"
+                         onerror="this.onerror=null; this.src='/assets/images/menus/default-menu.webp';">
+                    
+                    <div class="order-details">
+                        <h4>${cmd.menu_titre || 'Formule Traiteur'}</h4>
+                        <p><strong>Prestation :</strong> Pour ${nbConvivesAffiche} convives</p>
+                        <p><strong>Date & Heure :</strong> ${datePrestation}</p>
+                        <p><strong>Lieu de livraison :</strong> ${cmd.adresse_livraison || ''}, ${cmd.ville_livraison || cmd.ville || 'Bordeaux'}</p>
+                    </div>
+
+                    <div class="order-pricing">
+                        <div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px;">Montant Total TTC</div>
+                        <div class="order-total">${parseFloat(cmd.total_ttc || 0).toFixed(2).replace('.', ',')} €</div>
+                        <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 4px;">Dont livraison : ${parseFloat(cmd.frais_livraison || 0).toFixed(2).replace('.', ',')} €</div>
+                    </div>
+                </div>
+
+                ${timelineHtml}
+
+                <div class="order-actions">
+                    ${peutAnnuler ? `
+                        <button type="button" class="btn-cancel-order" data-id="${cmd.id}">
+                            ✕ Annuler cette commande
+                        </button>
+                    ` : ''}
+
+                    ${actionAvisHtml}
+                </div>
+            `;
+
+            container.appendChild(card);
+        });
+
+        document.querySelectorAll('.btn-cancel-order').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const cmdId = e.target.getAttribute('data-id');
+                if (confirm('Êtes-vous certain de vouloir annuler cette commande ? Cette action est irréversible.')) {
+                    annulerCommande(cmdId);
+                }
+            });
+        });
+
+        document.querySelectorAll('.btn-avis-order').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const cmdId = e.target.getAttribute('data-id');
+                ouvrirModalAvis(cmdId);
+            });
+        });
+    }
+
+    function genererTimeline(statut) {
+        if (statut.includes('annul')) {
+            return `
+                <div style="margin-top: 14px; padding: 12px; background: #FEF2F2; border-radius: 4px; font-size: 12px; color: #991B1B;">
+                    ⚠️ Cette commande a été annulée.
+                </div>
+            `;
+        }
+
+        const etapes = [
+            { key: 'attente', label: '1. Enregistrée' },
+            { key: 'validee', label: '2. Validée Julie & José' },
+            { key: 'preparation', label: '3. En cuisine' },
+            { key: 'livree', label: '4. Livrée' }
+        ];
+
+        let indexAtteint = 0;
+        if (statut.includes('valid') || statut.includes('accept')) indexAtteint = 1;
+        if (statut.includes('prep')) indexAtteint = 2;
+        if (statut.includes('livr') || statut.includes('term')) indexAtteint = 3;
+
+        let stepsHtml = '';
+        etapes.forEach((etape, i) => {
+            let etatClass = '';
+            if (i < indexAtteint) etatClass = 'completed';
+            else if (i === indexAtteint) etatClass = 'current';
+
+            stepsHtml += `
+                <div class="timeline-step ${etatClass}">
+                    <div class="timeline-circle">${i < indexAtteint ? '✓' : (i + 1)}</div>
+                    <span class="timeline-label">${etape.label}</span>
+                </div>
+            `;
+        });
+
+        return `<div class="timeline-tracker">${stepsHtml}</div>`;
+    }
+
+    function annulerCommande(commandeId) {
+        fetch(`/api/commandes/${commandeId}/annuler`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${authToken}`
+            },
+            body: JSON.stringify({ utilisateur_id: currentUserId })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.statut === 'succes') {
+                alert('Votre commande a été annulée avec succès.');
+                chargerMesCommandes(currentUserId);
+            } else {
+                alert('Erreur : ' + (res.message || 'Impossible d\'annuler cette commande.'));
+            }
+        })
+        .catch(err => {
+            console.error('Erreur annulation:', err);
+            alert('Une erreur réseau est survenue.');
+        });
+    }
+
+    // ==========================================
+    // GESTION DU PROFIL PERSONNEL
+    // ==========================================
+    function initialiserProfilForm(userData, userId) {
+        const inputPrenom = document.getElementById('prof-prenom');
+        const inputNom = document.getElementById('prof-nom');
+        const inputEmail = document.getElementById('prof-email');
+        const inputTel = document.getElementById('prof-tel');
+        const inputAdresse = document.getElementById('prof-adresse');
+        const inputCp = document.getElementById('prof-cp');
+        const inputVille = document.getElementById('prof-ville');
+        const formProfil = document.getElementById('form-update-profil');
+
+        if (inputPrenom) inputPrenom.value = userData.prenom || '';
+        if (inputNom) inputNom.value = userData.nom || '';
+        if (inputEmail) inputEmail.value = userData.email || '';
+        if (inputTel) inputTel.value = userData.telephone || '';
+        if (inputAdresse) inputAdresse.value = userData.adresse_postale || '';
+        if (inputCp) inputCp.value = userData.code_postal || '';
+        if (inputVille) inputVille.value = userData.ville || '';
+
+        if (formProfil) {
+            formProfil.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const alertSuccess = document.getElementById('profil-alert-success');
+                const alertError = document.getElementById('profil-alert-error');
+                const btnSave = document.getElementById('btn-save-profil');
+
+                if (alertSuccess) alertSuccess.style.display = 'none';
+                if (alertError) alertError.style.display = 'none';
+                if (btnSave) {
+                    btnSave.disabled = true;
+                    btnSave.textContent = 'Enregistrement en cours...';
+                }
+
+                const payload = {
+                    id: userId,
+                    prenom: inputPrenom.value.trim(),
+                    nom: inputNom.value.trim(),
+                    telephone: inputTel.value.trim(),
+                    adresse_postale: inputAdresse.value.trim(),
+                    code_postal: inputCp.value.trim(),
+                    ville: inputVille.value.trim()
+                };
+
+                const newPwd = document.getElementById('prof-new-pwd').value.trim();
+                if (newPwd) {
+                    payload.nouveau_mot_de_passe = newPwd;
+                }
+
+                fetch('/api/utilisateurs/me', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: JSON.stringify(payload)
+                })
+                .then(res => res.json())
+                .then(res => {
+                    if (btnSave) {
+                        btnSave.disabled = false;
+                        btnSave.textContent = 'Enregistrer les modifications';
+                    }
+
+                    if (res.statut === 'succes') {
+                        if (alertSuccess) {
+                            alertSuccess.textContent = '✅ Vos informations ont été mises à jour avec succès.';
+                            alertSuccess.style.display = 'block';
+                        }
+                        if (res.user) {
+                            localStorage.setItem('user_profile', JSON.stringify(res.user));
+                            majNavbar(res.user);
+                        }
+                        document.getElementById('prof-new-pwd').value = '';
+                    } else {
+                        if (alertError) {
+                            alertError.textContent = res.message || 'Une erreur est survenue lors de la mise à jour.';
+                            alertError.style.display = 'block';
+                        }
+                    }
+                })
+                .catch(err => {
+                    console.error('Erreur update profil:', err);
+                    if (btnSave) {
+                        btnSave.disabled = false;
+                        btnSave.textContent = 'Enregistrer les modifications';
+                    }
+                    if (alertError) {
+                        alertError.textContent = 'Erreur technique lors de la communication avec le serveur.';
+                        alertError.style.display = 'block';
+                    }
+                });
+            });
         }
     }
-}
+
+    // ==========================================
+    // GESTION DU DÉPÔT D'AVIS SUR COMMANDE LIVRÉE
+    // ==========================================
+    function initialiserGestionAvis() {
+        const modal = document.getElementById('modal-avis-container');
+        const btnClose = document.getElementById('btn-close-avis');
+        const formAvis = document.getElementById('form-avis');
+
+        if (btnClose && modal) {
+            btnClose.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+
+        if (formAvis) {
+            formAvis.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const cmdId = parseInt(document.getElementById('avis-commande-id').value);
+                const note = parseInt(document.getElementById('avis-note').value);
+                const commentaire = document.getElementById('avis-commentaire').value.trim();
+                const submitBtn = formAvis.querySelector('button[type="submit"]');
+
+                if (!commentaire) {
+                    alert('Veuillez rédiger un commentaire.');
+                    return;
+                }
+
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.textContent = 'Envoi en cours...';
+                }
+
+                try {
+                    const res = await fetch('/api/avis', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify({
+                            commande_id: cmdId,
+                            utilisateur_id: currentUserId,
+                            note: note,
+                            commentaire: commentaire
+                        })
+                    });
+
+                    const data = await res.json();
+
+                    if (res.ok && data.statut === 'succes') {
+                        marquerCommandeCommeNotee(cmdId);
+                        alert(`Merci pour votre retour ! Votre avis (${note}/5) a été transmis à l'équipe Vite & Gourmand et sera publié après validation.`);
+                        if (modal) modal.style.display = 'none';
+                        formAvis.reset();
+                    } else if (res.status === 409) {
+                        marquerCommandeCommeNotee(cmdId);
+                        alert(data.message || 'Vous avez déjà déposé un avis pour cette commande.');
+                        if (modal) modal.style.display = 'none';
+                    } else {
+                        alert('Erreur : ' + (data.message || 'Impossible d\'enregistrer votre avis.'));
+                    }
+                } catch (err) {
+                    console.error('Erreur envoi avis:', err);
+                    alert('Erreur de communication avec le serveur.');
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Envoyer mon avis';
+                    }
+                }
+            });
+        }
+    }
+
+    function ouvrirModalAvis(commandeId) {
+        const modal = document.getElementById('modal-avis-container');
+        const inputId = document.getElementById('avis-commande-id');
+        if (inputId) inputId.value = commandeId;
+        if (modal) modal.style.display = 'flex';
+    }
+
+    // ==========================================
+    // SYNCHRONISATION DE LA NAVBAR
+    // ==========================================
+    function majNavbar(userData) {
+        const navConnexionLink = document.querySelector('.btn-connexion') || 
+                                 document.querySelector('a[href*="login"]') || 
+                                 Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toLowerCase() === 'connexion');
+
+        if (navConnexionLink && userData) {
+            const isAdmin = (userData.role === 'admin' || userData.role === 'employe');
+            const profileWrapper = document.createElement('div');
+            profileWrapper.style.cssText = 'display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; justify-self: end;';
+            profileWrapper.innerHTML = `
+                ${isAdmin ? `
+                    <a href="/admin.html" style="background: var(--color-primary, #721B29); color: #FFFFFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
+                        ⚙️ Admin
+                    </a>
+                ` : ''}
+                <a href="/compte.html" style="text-decoration: none; font-size: 13px; font-weight: 700; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                    👤 ${userData.prenom || ''}
+                </a>
+                <button type="button" id="btn-logout" style="background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
+                    Déconnexion
+                </button>
+            `;
+
+            navConnexionLink.replaceWith(profileWrapper);
+
+            const btnLogout = document.getElementById('btn-logout');
+            if (btnLogout) {
+                btnLogout.addEventListener('click', () => {
+                    localStorage.removeItem('auth_token');
+                    localStorage.removeItem('user_profile');
+                    localStorage.removeItem('token');
+                    localStorage.removeItem('user');
+                    sessionStorage.clear();
+                    window.location.href = '/';
+                });
+            }
+        }
+    }
+});

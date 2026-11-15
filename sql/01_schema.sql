@@ -7,6 +7,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS `contact_message`;
 DROP TABLE IF EXISTS `avis`;
+DROP TABLE IF EXISTS `commande_historique`;
 DROP TABLE IF EXISTS `ligne_commande`;
 DROP TABLE IF EXISTS `commande`;
 DROP TABLE IF EXISTS `plat_allergene`;
@@ -185,4 +186,18 @@ CREATE TABLE `contact_message` (
     `statut` VARCHAR(30) NOT NULL DEFAULT 'nouveau',
     `date_envoi` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     INDEX `idx_contact_statut` (`statut`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- 11. Table : commande_historique (Suivi horodaté des changements de statut)
+-- -----------------------------------------------------------------------------
+CREATE TABLE `commande_historique` (
+    `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `commande_id` INT UNSIGNED NOT NULL,
+    `statut` ENUM('en_attente', 'validee', 'en_preparation', 'livree', 'annulee') NOT NULL,
+    `date_changement` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT `fk_historique_commande`
+        FOREIGN KEY (`commande_id`) REFERENCES `commande` (`id`)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    INDEX `idx_historique_commande` (`commande_id`, `date_changement`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

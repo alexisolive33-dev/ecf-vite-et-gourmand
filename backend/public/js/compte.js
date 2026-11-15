@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const currentUserId = user.id || user.utilisateur_id;
     let commandesDejaNotees = new Set();
+    let commandesCache = [];
 
     majNavbar(user);
     const welcomeTitle = document.getElementById('user-welcome-title');
@@ -43,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Initialisation des formulaires et des données
     initialiserProfilForm(user, currentUserId);
+    initialiserModalEditionCommande();
     chargerMesCommandes(currentUserId);
     initialiserGestionAvis();
 
@@ -77,9 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 if (resCmd.statut === 'succes' && resCmd.commandes && resCmd.commandes.length > 0) {
+                    commandesCache = resCmd.commandes;
                     if (emptyEl) emptyEl.style.display = 'none';
                     afficherCommandes(resCmd.commandes, listEl);
                 } else {
+                    commandesCache = [];
                     if (emptyEl) emptyEl.style.display = 'block';
                     if (listEl) listEl.innerHTML = '';
                 }
@@ -102,6 +106,19 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn) {
             btn.outerHTML = badgeAvisEnvoyeHtml();
         }
+    }
+
+    function formatDateHeureFr(rawDate) {
+        if (!rawDate) return '';
+        const d = new Date(String(rawDate).replace(' ', 'T'));
+        if (isNaN(d.getTime())) return String(rawDate);
+        return d.toLocaleString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        }).replace(':', 'h').replace(' ', ' à ');
     }
 
     function afficherCommandes(commandes, container) {
@@ -145,11 +162,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 libelleStatut = 'Annulée';
             }
 
-            const peutAnnuler = rawStatut.includes('attente') || rawStatut === 'creee' || rawStatut === 'cree';
+            const peutModifierOuAnnuler = rawStatut.includes('attente') || rawStatut === 'creee' || rawStatut === 'cree';
             const estTerminee = rawStatut.includes('livr') || rawStatut.includes('term');
             const dejaNotee = commandesDejaNotees.has(Number(cmd.id));
 
-            const timelineHtml = genererTimeline(rawStatut);
+            const timelineHtml = genererTimeline(rawStatut, cmd.historique || [], rawDateCreation);
 
             let actionAvisHtml = '';
             if (estTerminee) {
@@ -192,7 +209,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 ${timelineHtml}
 
                 <div class="order-actions">
-                    ${peutAnnuler ? `
+                    ${peutModifierOuAnnuler ? `
+                        <button type="button" class="btn-edit-order" data-id="${cmd.id}">
+                            ✎ Modifier cette commande
+                        </button>
                         <button type="button" class="btn-cancel-order" data-id="${cmd.id}">
                             ✕ Annuler cette commande
                         </button>
@@ -203,6 +223,14 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             container.appendChild(card);
+        });
+
+        document.querySelectorAll('.btn-edit-order').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const cmdId = Number(e.target.getAttribute('data-id'));
+                const cmd = commandesCache.find(c => Number(c.id) === cmdId);
+                if (cmd) ouvrirModalEditionCommande(cmd);
+            });
         });
 
         document.querySelectorAll('.btn-cancel-order').forEach(btn => {
@@ -222,19 +250,33 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function genererTimeline(statut) {
+    function genererTimeline(statut, historique = [], dateCreationFallback = null) {
+        const datesParStatut = {};
+        if (Array.isArray(historique)) {
+            historique.forEach(item => {
+                const st = String(item.statut || '').toLowerCase();
+                if (st && item.date_changement) {
+                    datesParStatut[st] = formatDateHeureFr(item.date_changement);
+                }
+            });
+        }
+        if (!datesParStatut['en_attente'] && dateCreationFallback) {
+            datesParStatut['en_attente'] = formatDateHeureFr(dateCreationFallback);
+        }
+
         if (statut.includes('annul')) {
+            const dateAnnul = datesParStatut['annulee'] ? ` le ${datesParStatut['annulee']}` : '';
             return `
                 <div style="margin-top: 14px; padding: 12px; background: #FEF2F2; border-radius: 4px; font-size: 12px; color: #991B1B;">
-                    ⚠️ Cette commande a été annulée.
+                    ⚠️ Cette commande a été annulée${dateAnnul}.
                 </div>
             `;
         }
 
         const etapes = [
-            { key: 'attente', label: '1. Enregistrée' },
+            { key: 'en_attente', label: '1. Enregistrée' },
             { key: 'validee', label: '2. Validée Julie & José' },
-            { key: 'preparation', label: '3. En cuisine' },
+            { key: 'en_preparation', label: '3. En cuisine' },
             { key: 'livree', label: '4. Livrée' }
         ];
 
@@ -249,15 +291,115 @@ document.addEventListener('DOMContentLoaded', () => {
             if (i < indexAtteint) etatClass = 'completed';
             else if (i === indexAtteint) etatClass = 'current';
 
+            const dateEtape = datesParStatut[etape.key]
+                ? `<div class="timeline-date">${datesParStatut[etape.key]}</div>`
+                : (i <= indexAtteint ? `<div class="timeline-date">Validé</div>` : '');
+
             stepsHtml += `
                 <div class="timeline-step ${etatClass}">
                     <div class="timeline-circle">${i < indexAtteint ? '✓' : (i + 1)}</div>
                     <span class="timeline-label">${etape.label}</span>
+                    ${dateEtape}
                 </div>
             `;
         });
 
         return `<div class="timeline-tracker">${stepsHtml}</div>`;
+    }
+
+    function initialiserModalEditionCommande() {
+        const modal = document.getElementById('modal-edit-commande-container');
+        const btnClose = document.getElementById('btn-close-edit-cmd');
+        const form = document.getElementById('form-edit-commande');
+
+        if (btnClose && modal) {
+            btnClose.addEventListener('click', () => {
+                modal.style.display = 'none';
+            });
+        }
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const errorBox = document.getElementById('edit-cmd-error');
+                const btnSubmit = document.getElementById('btn-submit-edit-cmd');
+                const cmdId = document.getElementById('edit-cmd-id').value;
+
+                if (errorBox) errorBox.style.display = 'none';
+                if (btnSubmit) {
+                    btnSubmit.disabled = true;
+                    btnSubmit.textContent = 'Enregistrement...';
+                }
+
+                const rawDate = document.getElementById('edit-cmd-date').value;
+                const dateFormatted = rawDate ? rawDate.replace('T', ' ') + ':00' : '';
+
+                const payload = {
+                    utilisateur_id: currentUserId,
+                    nb_convives: parseInt(document.getElementById('edit-cmd-convives').value, 10),
+                    date_livraison: dateFormatted,
+                    adresse_livraison: document.getElementById('edit-cmd-adresse').value.trim(),
+                    ville_livraison: document.getElementById('edit-cmd-ville').value.trim(),
+                    distance_km: parseFloat(document.getElementById('edit-cmd-distance').value) || 0
+                };
+
+                try {
+                    const res = await fetch(`/api/commandes/${cmdId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${authToken}`
+                        },
+                        body: JSON.stringify(payload)
+                    });
+                    const data = await res.json();
+
+                    if (res.ok && data.statut === 'succes') {
+                        modal.style.display = 'none';
+                        chargerMesCommandes(currentUserId);
+                    } else {
+                        const msg = Array.isArray(data.erreurs) ? data.erreurs.join(' ') : (data.message || 'Impossible de modifier cette commande.');
+                        if (errorBox) {
+                            errorBox.textContent = msg;
+                            errorBox.style.display = 'block';
+                        } else {
+                            alert(msg);
+                        }
+                    }
+                } catch (err) {
+                    if (errorBox) {
+                        errorBox.textContent = 'Erreur réseau lors de la modification.';
+                        errorBox.style.display = 'block';
+                    }
+                } finally {
+                    if (btnSubmit) {
+                        btnSubmit.disabled = false;
+                        btnSubmit.textContent = 'Enregistrer les modifications';
+                    }
+                }
+            });
+        }
+    }
+
+    function ouvrirModalEditionCommande(cmd) {
+        const modal = document.getElementById('modal-edit-commande-container');
+        const errorBox = document.getElementById('edit-cmd-error');
+        if (errorBox) errorBox.style.display = 'none';
+
+        document.getElementById('edit-cmd-id').value = cmd.id;
+        document.getElementById('edit-cmd-menu').value = cmd.menu_titre || 'Formule Traiteur';
+        document.getElementById('edit-cmd-convives').value = cmd.nb_convives || cmd.convives_min || 4;
+        document.getElementById('edit-cmd-convives').min = cmd.convives_min || 1;
+        document.getElementById('edit-cmd-adresse').value = cmd.adresse_livraison || '';
+        document.getElementById('edit-cmd-ville').value = cmd.ville_livraison || cmd.ville || 'Bordeaux';
+        document.getElementById('edit-cmd-distance').value = cmd.distance_km ?? 0;
+
+        const rawDate = cmd.date_livraison_souhaitee || cmd.date_livraison || '';
+        if (rawDate) {
+            document.getElementById('edit-cmd-date').value = String(rawDate).replace(' ', 'T').slice(0, 16);
+        }
+
+        if (modal) modal.style.display = 'flex';
     }
 
     function annulerCommande(commandeId) {
