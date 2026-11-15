@@ -38,7 +38,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 2. Gestion du menu mobile (Bouton Hamburger & Tiroir Figma)
     if (navContainer && nav) {
-        // Injection du bouton burger s'il n'existe pas encore dans le DOM
         let burgerBtn = navContainer.querySelector('.burger-btn');
         if (!burgerBtn) {
             burgerBtn = document.createElement('button');
@@ -50,7 +49,6 @@ document.addEventListener('DOMContentLoaded', () => {
             navContainer.appendChild(burgerBtn);
         }
 
-        // Insertion du bloc compte / connexion dans le tiroir mobile
         let mobileAuth = nav.querySelector('.mobile-auth-slot');
         if (!mobileAuth) {
             mobileAuth = document.createElement('div');
@@ -80,7 +78,6 @@ document.addEventListener('DOMContentLoaded', () => {
             nav.appendChild(mobileAuth);
         }
 
-        // Écouteur d'ouverture / fermeture du hamburger
         burgerBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             const isOpen = nav.classList.toggle('open');
@@ -88,7 +85,6 @@ document.addEventListener('DOMContentLoaded', () => {
             burgerBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
         });
 
-        // Fermer le tiroir quand on clique sur un lien de navigation
         nav.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', () => {
                 nav.classList.remove('open');
@@ -97,7 +93,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
-        // Fermer le tiroir si on clique en dehors
         document.addEventListener('click', (e) => {
             if (!nav.contains(e.target) && !burgerBtn.contains(e.target)) {
                 nav.classList.remove('open');
@@ -118,4 +113,41 @@ document.addEventListener('DOMContentLoaded', () => {
             window.location.href = '/';
         });
     });
+
+    // 4. Synchronisation dynamique des horaires d'ouverture dans le footer
+    synchroniserHorairesFooter();
 });
+
+async function synchroniserHorairesFooter() {
+    const titresFooter = document.querySelectorAll('.footer-col h4');
+    let colHoraires = null;
+
+    titresFooter.forEach(h4 => {
+        if (h4.textContent.toLowerCase().includes('horaires')) {
+            colHoraires = h4.closest('.footer-col');
+        }
+    });
+
+    if (!colHoraires) return;
+
+    try {
+        const res = await fetch('/api/horaires');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        if (data.statut === 'succes' && Array.isArray(data.horaires) && data.horaires.length > 0) {
+            const titreH4 = colHoraires.querySelector('h4');
+            const titreTexte = titreH4 ? titreH4.textContent : "Nos Horaires d'Ouverture";
+
+            const lignesHtml = data.horaires.map(h => {
+                const jour = String(h.jour_semaine || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                const heures = String(h.heures_ouverture || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                return `<p><strong>${jour} :</strong> ${heures}</p>`;
+            }).join('');
+
+            colHoraires.innerHTML = `<h4>${titreTexte}</h4>${lignesHtml}`;
+        }
+    } catch (err) {
+        console.error('Erreur chargement horaires footer:', err);
+    }
+}
