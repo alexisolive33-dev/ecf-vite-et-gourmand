@@ -67,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let commandesCache = [];
     let selectEnCoursAnnulation = null;
     let statutPrecedentAnnulation = 'en_attente';
+    let commandesChartInstance = null;
 
     function escapeHtml(str) {
         return String(str || '')
@@ -76,7 +77,261 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/"/g, '&quot;');
     }
 
-    // 1. Statistiques MongoDB
+    function formatEuro(val) {
+        return parseFloat(val || 0).toFixed(2).replace('.', ',');
+    }
+
+    // =========================================================================
+    // 0. SECTIONS RÉSERVÉES À L'ADMINISTRATEUR (JOSÉ)
+    // =========================================================================
+    if (role === 'admin') {
+        const adminOnlyBlock = document.getElementById('admin-only-sections');
+        if (adminOnlyBlock) adminOnlyBlock.style.display = 'block';
+
+        chargerGraphiqueCommandesMenus();
+        initialiserCalculateurCA();
+        chargerChiffreAffaires();
+        initialiserGestionEmployes();
+        chargerEmployes();
+    }
+
+    async function chargerGraphiqueCommandesMenus() {
+        const canvas = document.getElementById('chart-commandes-menus');
+        const sourceBadge = document.getElementById('nosql-orders-source');
+        if (!canvas) return;
+
+        try {
+            const res = await fetch('/api/admin/stats/commandes-menus', {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            const data = await res.json();
+            if (!res.ok || data.statut !== 'succes') return;
+
+            if (sourceBadge && data.source) {
+                sourceBadge.textContent = data.source;
+            }
+
+            const items = data.donnees || [];
+            const labels = items.map(i => i.titre);
+            const values = items.map(i => Number(i.nb_commandes || 0));
+
+            if (commandesChartInstance) {
+                commandesChartInstance.destroy();
+            }
+
+            if (typeof Chart !== 'undefined') {
+                commandesChartInstance = new Chart(canvas.getContext('2d'), {
+                    type: 'bar',
+                    data: {
+                        labels,
+                        datasets: [{
+                            label: 'Nombre de commandes (NoSQL MongoDB)',
+                            data: values,
+                            backgroundColor: ['#721B29', '#B8860B', '#9E2A3B', '#D4A843', '#4B5563'],
+                            borderRadius: 6,
+                            maxBarThickness: 56
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { display: true, position: 'top' }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: { precision: 0 }
+                            }
+                        }
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Erreur chargement graphique NoSQL:', err);
+        }
+    }
+
+    function initialiserCalculateurCA() {
+        const btnCalc = document.getElementById('btn-calc-ca');
+        const btnReset = document.getElementById('btn-reset-ca');
+        const selectMenu = document.getElementById('ca-filter-menu');
+
+        if (btnCalc) btnCalc.addEventListener('click', chargerChiffreAffaires);
+        if (selectMenu) selectMenu.addEventListener('change', chargerChiffreAffaires);
+        if (btnReset) {
+            btnReset.addEventListener('click', () => {
+                if (selectMenu) selectMenu.value = '';
+                const d1 = document.getElementById('ca-date-debut');
+                const d2 = document.getElementById('ca-date-fin');
+                if (d1) d1.value = '';
+                if (d2) d2.value = '';
+                chargerChiffreAffaires();
+            });
+        }
+    }
+
+    async function chargerChiffreAffaires() {
+        const tbody = document.getElementById('ca-table-body');
+        if (!tbody) return;
+
+        const menuId = document.getElementById('ca-filter-menu')?.value || '';
+        const dateDebut = document.getElementById('ca-date-debut')?.value || '';
+        const dateFin = document.getElementById('ca-date-fin')?.value || '';
+
+        const params = new URLSearchParams();
+        if (menuId) params.set('menu_id', menuId);
+        if (dateDebut) params.set('date_debut', dateDebut);
+        if (dateFin) params.set('date_fin', dateFin);
+
+        try {
+            const res = await fetch(`/api/admin/stats/chiffre-affaires?${params.toString()}`, {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            const data = await res.json();
+            if (!res.ok || data.statut !== 'succes') return;
+
+            const totaux = data.totaux || {};
+            const kpiCa = document.getElementById('kpi-ca-total');
+            const kpiCmd = document.getElementById('kpi-ca-commandes');
+            const kpiConv = document.getElementById('kpi-ca-convives');
+
+            if (kpiCa) kpiCa.innerHTML = `${formatEuro(totaux.ca_total_ttc)} <span>€</span>`;
+            if (kpiCmd) kpiCmd.innerHTML = `${totaux.total_commandes || 0} <span>commandes</span>`;
+            if (kpiConv) kpiConv.innerHTML = `${totaux.total_convives || 0} <span>convives</span>`;
+
+            const lignes = data.par_menu || [];
+            if (lignes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--color-text-muted);">Aucune donnée sur cette sélection.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = lignes.map(l => `
+                <tr>
+                    <td><strong>${escapeHtml(l.menu_titre)}</strong></td>
+                    <td>${l.nb_commandes}</td>
+                    <td>${l.total_convives} pers.</td>
+                    <td>${formatEuro(l.ca_repas_ttc)} €</td>
+                    <td>${formatEuro(l.ca_livraison_ttc)} €</td>
+                    <td><strong style="color: var(--color-primary);">${formatEuro(l.ca_total_ttc)} €</strong></td>
+                </tr>
+            `).join('');
+        } catch (err) {
+            console.error('Erreur calcul CA:', err);
+        }
+    }
+
+    function initialiserGestionEmployes() {
+        const form = document.getElementById('create-employe-form');
+        if (!form) return;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const payload = {
+                email: document.getElementById('emp-email').value.trim(),
+                mot_de_passe: document.getElementById('emp-password').value,
+                prenom: document.getElementById('emp-prenom').value.trim(),
+                nom: document.getElementById('emp-nom').value.trim()
+            };
+
+            try {
+                const res = await fetch('/api/admin/employes', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+                if (res.ok && data.statut === 'succes') {
+                    alert(data.message);
+                    form.reset();
+                    chargerEmployes();
+                } else {
+                    alert('Erreur : ' + (data.message || 'Impossible de créer le compte employé.'));
+                }
+            } catch (err) {
+                alert('Erreur réseau lors de la création du compte employé.');
+            }
+        });
+    }
+
+    async function chargerEmployes() {
+        const tbody = document.getElementById('employes-table-body');
+        if (!tbody) return;
+
+        try {
+            const res = await fetch('/api/admin/employes', {
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            });
+            const data = await res.json();
+            const employes = data.employes || [];
+
+            if (!res.ok || employes.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:24px; color:var(--color-text-muted);">Aucun compte employé enregistré.</td></tr>';
+                return;
+            }
+
+            tbody.innerHTML = employes.map(emp => {
+                const actif = Number(emp.est_actif) === 1;
+                return `
+                    <tr>
+                        <td><strong>${escapeHtml(emp.prenom)} ${escapeHtml(emp.nom)}</strong></td>
+                        <td>${escapeHtml(emp.email)}</td>
+                        <td><span class="user-badge" style="font-size:11px; padding:3px 10px;">EMPLOYÉ</span></td>
+                        <td>
+                            <span class="avis-badge ${actif ? 'publie' : 'desactive'}">
+                                ${actif ? 'Actif' : 'Désactivé (départ)'}
+                            </span>
+                        </td>
+                        <td>
+                            ${actif
+                                ? `<button type="button" class="btn-avis-reject btn-toggle-emp" data-id="${emp.id}" data-actif="0">Désactiver le compte</button>`
+                                : `<button type="button" class="btn-avis-approve btn-toggle-emp" data-id="${emp.id}" data-actif="1">Réactiver le compte</button>`
+                            }
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            document.querySelectorAll('.btn-toggle-emp').forEach(btn => {
+                btn.addEventListener('click', async (e) => {
+                    const id = e.target.getAttribute('data-id');
+                    const actif = Number(e.target.getAttribute('data-actif')) === 1;
+                    const msg = actif
+                        ? 'Réactiver ce compte employé ?'
+                        : 'Rendre ce compte employé inutilisable (départ de l’entreprise) ?';
+                    if (!confirm(msg)) return;
+
+                    try {
+                        const r = await fetch(`/api/admin/employes/${id}/statut`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                            },
+                            body: JSON.stringify({ est_actif: actif })
+                        });
+                        const d = await r.json();
+                        if (r.ok && d.statut === 'succes') {
+                            chargerEmployes();
+                        } else {
+                            alert('Erreur : ' + (d.message || 'Action impossible.'));
+                        }
+                    } catch (err) {
+                        alert('Erreur réseau.');
+                    }
+                });
+            });
+        } catch (err) {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--color-primary);">Erreur de chargement des employés.</td></tr>';
+        }
+    }
+
+    // =========================================================================
+    // 1. STATISTIQUES MONGODB (VUES)
+    // =========================================================================
     chargerStatsMongo();
 
     function chargerStatsMongo() {
@@ -321,6 +576,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     resetMenuForm();
                     chargerMenus();
                     chargerStatsMongo();
+                    if (role === 'admin') chargerChiffreAffaires();
                 } else {
                     alert('Erreur : ' + (data.message || 'Impossible d’enregistrer le menu.'));
                 }
@@ -336,6 +592,16 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => res.json())
             .then(res => {
                 menusCache = res.donnees || [];
+
+                // Alimentation du filtre Menu du calculateur CA (Admin)
+                const caSelect = document.getElementById('ca-filter-menu');
+                if (caSelect) {
+                    const currentVal = caSelect.value;
+                    caSelect.innerHTML = '<option value="">Tous les menus</option>' +
+                        menusCache.map(m => `<option value="${m.id}">${escapeHtml(m.titre)}</option>`).join('');
+                    caSelect.value = currentVal;
+                }
+
                 if (res.statut === 'succes' && menusCache.length > 0) {
                     renderMenus(menusCache);
                 } else {
@@ -655,6 +921,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     setTimeout(() => { selectElement.style.backgroundColor = ''; }, 1000);
                 }
                 chargerCommandes();
+                if (role === 'admin') chargerChiffreAffaires();
                 return true;
             } else {
                 alert('Erreur : ' + (data.message || 'Impossible de mettre à jour le statut.'));

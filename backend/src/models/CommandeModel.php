@@ -244,7 +244,7 @@ class CommandeModel
     }
 
     /**
-     * Enregistre une commande complète dans une transaction SQL sécurisée
+     * Enregistre une commande complète dans une transaction SQL sécurisée et trace l'événement dans MongoDB
      */
     public function creerCommande(array $client, array $simulation): array
     {
@@ -254,7 +254,7 @@ class CommandeModel
             $menuId = (int)$simulation['menu_id'];
 
             $stmtLock = $this->db->prepare("
-                SELECT stock_disponible 
+                SELECT stock_disponible, titre 
                 FROM menu 
                 WHERE id = :id 
                 FOR UPDATE
@@ -353,6 +353,17 @@ class CommandeModel
 
             $this->db->commit();
 
+            // Enregistrement analytique dans la base non relationnelle MongoDB
+            try {
+                (new MenuViewRepository())->enregistrerCommandeMenu(
+                    $menuId,
+                    (string)($menu['titre'] ?? 'Menu #' . $menuId),
+                    (int)$simulation['nb_convives'],
+                    (float)$simulation['total_ttc']
+                );
+            } catch (\Throwable $eMongo) {
+            }
+
             return [
                 'commande_id'     => $commandeId,
                 'numero_commande' => $numeroCommande,
@@ -366,5 +377,81 @@ class CommandeModel
             }
             throw $e;
         }
+    }
+
+    /**
+     * Calcule le chiffre d'affaires par menu avec filtres optionnels (menu_id et période)
+     */
+    public function getChiffreAffairesParMenu(?int $menuId = null, ?string $dateDebut = null, ?string $dateFin = null): array
+    {
+        $where = ["c.statut <> 'annulee'"];
+        $params = [];
+
+        if ($menuId !== null && $menuId > 0) {
+            $where[] = "m.id = :menu_id";
+            $params[':menu_id'] = $menuId;
+        }
+        if ($dateDebut !== null && $dateDebut !== '') {
+            $where[] = "DATE(c.date_livraison_souhaitee) >= :date_debut";
+            $params[':date_debut'] = $dateDebut;
+        }
+        if ($dateFin !== null && $dateFin !== '') {
+            $where[] = "DATE(c.date_livraison_souhaitee) <= :date_fin";
+            $params[':date_fin'] = $dateFin;
+        }
+
+        $whereSql = implode(' AND ', $where);
+
+        $sql = "
+            SELECT
+                m.id AS menu_id,
+                m.titre AS menu_titre,
+                COUNT(DISTINCT c.id) AS nb_commandes,
+                COALESCE(SUM(lc.nb_convives), 0) AS total_convives,
+                COALESCE(SUM(c.sous_total_repas), 0) AS ca_repas_ttc,
+                COALESCE(SUM(c.frais_livraison), 0) AS ca_livraison_ttc,
+                COALESCE(SUM(c.total_ttc), 0) AS ca_total_ttc
+            FROM menu m
+            LEFT JOIN ligne_commande lc ON lc.menu_id = m.id
+            LEFT JOIN commande c ON c.id = lc.commande_id AND {$whereSql}
+            " . ($menuId !== null && $menuId > 0 ? "WHERE m.id = :menu_id_outer" : "") . "
+            GROUP BY m.id, m.titre
+            ORDER BY ca_total_ttc DESC, m.titre ASC
+        ";
+
+        if ($menuId !== null && $menuId > 0) {
+            $params[':menu_id_outer'] = $menuId;
+        }
+
+        $stmt = $this->db->prepare($sql);
+        $stmt->execute($params);
+        $lignes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $globalCa = 0.0;
+        $globalCommandes = 0;
+        $globalConvives = 0;
+
+        foreach ($lignes as &$row) {
+            $row['menu_id'] = (int)$row['menu_id'];
+            $row['nb_commandes'] = (int)$row['nb_commandes'];
+            $row['total_convives'] = (int)$row['total_convives'];
+            $row['ca_repas_ttc'] = round((float)$row['ca_repas_ttc'], 2);
+            $row['ca_livraison_ttc'] = round((float)$row['ca_livraison_ttc'], 2);
+            $row['ca_total_ttc'] = round((float)$row['ca_total_ttc'], 2);
+
+            $globalCa += $row['ca_total_ttc'];
+            $globalCommandes += $row['nb_commandes'];
+            $globalConvives += $row['total_convives'];
+        }
+        unset($row);
+
+        return [
+            'par_menu' => $lignes,
+            'totaux' => [
+                'ca_total_ttc'    => round($globalCa, 2),
+                'total_commandes' => $globalCommandes,
+                'total_convives'  => $globalConvives
+            ]
+        ];
     }
 }

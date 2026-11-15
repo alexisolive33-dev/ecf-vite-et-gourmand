@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Administration & Pilotage | Vite & Gourmand</title>
     <link rel="stylesheet" href="/css/style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         .admin-nav-user {
             display: flex;
@@ -149,6 +150,11 @@
         .avis-badge.en-attente {
             background-color: #FEF3C7;
             color: #92400E;
+        }
+
+        .avis-badge.desactive {
+            background-color: #FEE2E2;
+            color: #991B1B;
         }
 
         .btn-avis-approve {
@@ -334,11 +340,157 @@
             <span class="surtitre-or">PILOTAGE EN TEMPS RÉEL</span>
             <h1>Tableau de Bord Julie & José</h1>
             <p style="color: var(--color-text-muted); font-size: 14px; margin-top: 4px;">
-                Configuration des menus, plats et horaires, supervision des commandes, modération des avis et métriques de consultation.
+                Pilotage financier et analytique, gestion de l'équipe, configuration des menus et supervision des commandes.
             </p>
         </div>
 
-        <!-- Section 1 : Métriques NoSQL MongoDB -->
+        <!-- =================================================================== -->
+        <!-- BLOC RÉSERVÉ STRICTEMENT À L'ADMINISTRATEUR (JOSÉ)                  -->
+        <!-- =================================================================== -->
+        <div id="admin-only-sections" style="display: none;">
+
+            <!-- A. Graphique comparatif des commandes par menu (MongoDB NoSQL) -->
+            <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    <h3 style="font-size: 18px;">Comparatif des Commandes par Menu (Base NoSQL MongoDB)</h3>
+                    <span style="font-size: 12px; color: var(--color-text-muted);">Agrégation temps réel sur la collection non relationnelle <code>menu_orders</code></span>
+                </div>
+                <span id="nosql-orders-source" style="font-size: 12px; color: var(--color-secondary); font-weight: 700;">MongoDB Atlas</span>
+            </div>
+
+            <div class="menu-editor-card" style="border-top-color: var(--color-secondary); margin-bottom: 44px;">
+                <div style="position: relative; height: 290px; width: 100%;">
+                    <canvas id="chart-commandes-menus"></canvas>
+                </div>
+            </div>
+
+            <!-- B. Calcul du Chiffre d'Affaires par Menu & Durée -->
+            <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    <h3 style="font-size: 18px;">Calcul du Chiffre d'Affaires par Menu</h3>
+                    <span style="font-size: 12px; color: var(--color-text-muted);">Filtrable par formule traiteur et sur une période de prestation (hors commandes annulées)</span>
+                </div>
+            </div>
+
+            <div class="orders-filter-bar">
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label for="ca-filter-menu" style="font-size: 12px; font-weight: 700;">Menu :</label>
+                    <select id="ca-filter-menu">
+                        <option value="">Tous les menus</option>
+                    </select>
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label for="ca-date-debut" style="font-size: 12px; font-weight: 700;">Du :</label>
+                    <input type="date" id="ca-date-debut">
+                </div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                    <label for="ca-date-fin" style="font-size: 12px; font-weight: 700;">Au :</label>
+                    <input type="date" id="ca-date-fin">
+                </div>
+                <button type="button" id="btn-calc-ca" class="btn-primary-bordeaux">Calculer</button>
+                <button type="button" id="btn-reset-ca" class="btn-secondary-gold">Toute la période</button>
+            </div>
+
+            <div class="stats-grid-container" style="margin-bottom: 20px;">
+                <div class="stat-card-box">
+                    <h4>Chiffre d'Affaires Total TTC</h4>
+                    <div class="stat-card-number" id="kpi-ca-total">0,00 <span>€</span></div>
+                </div>
+                <div class="stat-card-box">
+                    <h4>Commandes Comptabilisées</h4>
+                    <div class="stat-card-number" id="kpi-ca-commandes">0 <span>commandes</span></div>
+                </div>
+                <div class="stat-card-box">
+                    <h4>Total Convives Servis</h4>
+                    <div class="stat-card-number" id="kpi-ca-convives">0 <span>convives</span></div>
+                </div>
+            </div>
+
+            <div class="orders-table-wrapper" style="margin-bottom: 48px;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Menu</th>
+                            <th>Commandes</th>
+                            <th>Convives</th>
+                            <th>Sous-total Repas TTC</th>
+                            <th>Frais Livraison TTC</th>
+                            <th>Chiffre d'Affaires TTC</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ca-table-body">
+                        <tr>
+                            <td colspan="6" style="text-align: center; padding: 24px; color: var(--color-text-muted);">
+                                Chargement du chiffre d'affaires...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- C. Gestion des Comptes Employés (Création & Désactivation) -->
+            <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+                <div>
+                    <h3 style="font-size: 18px;">Gestion des Comptes Employés</h3>
+                    <span style="font-size: 12px; color: var(--color-text-muted);">Création de comptes collaborateurs uniquement (création d'administrateur impossible) • Désactivation en cas de départ</span>
+                </div>
+            </div>
+
+            <div class="menu-editor-card" style="margin-bottom: 20px;">
+                <h4 style="margin-bottom: 12px; font-size: 15px;">Créer un compte Employé</h4>
+                <form id="create-employe-form">
+                    <div class="menu-form-grid">
+                        <div class="menu-form-group">
+                            <label for="emp-email">Adresse e-mail (identifiant / username) *</label>
+                            <input type="email" id="emp-email" required placeholder="collaborateur@vitegourmand.fr">
+                        </div>
+                        <div class="menu-form-group">
+                            <label for="emp-password">Mot de passe provisoire *</label>
+                            <input type="password" id="emp-password" required placeholder="10 car. min, Maj, min, chiffre, spécial">
+                        </div>
+                        <div class="menu-form-group">
+                            <label for="emp-prenom">Prénom (optionnel)</label>
+                            <input type="text" id="emp-prenom" placeholder="Ex : Camille">
+                        </div>
+                        <div class="menu-form-group">
+                            <label for="emp-nom">Nom (optionnel)</label>
+                            <input type="text" id="emp-nom" placeholder="Ex : Laurent">
+                        </div>
+                    </div>
+                    <p style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 12px;">
+                        ℹ️ Un e-mail de notification sera envoyé à l'employé <strong>sans mentionner son mot de passe</strong> : il devra se rapprocher de vous pour l'obtenir.
+                    </p>
+                    <button type="submit" class="btn-primary-bordeaux">+ Créer le compte employé</button>
+                </form>
+            </div>
+
+            <div class="orders-table-wrapper" style="margin-bottom: 48px;">
+                <table class="admin-table">
+                    <thead>
+                        <tr>
+                            <th>Collaborateur</th>
+                            <th>Identifiant (E-mail)</th>
+                            <th>Rôle</th>
+                            <th>Statut du compte</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="employes-table-body">
+                        <tr>
+                            <td colspan="5" style="text-align: center; padding: 24px; color: var(--color-text-muted);">
+                                Chargement des comptes employés...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+        <!-- =================================================================== -->
+        <!-- FIN DU BLOC ADMINISTRATEUR                                          -->
+        <!-- =================================================================== -->
+
+        <!-- Section : Consultations de Formules (MongoDB NoSQL) -->
         <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
             <h3 style="font-size: 18px;">Consultations de Formules (MongoDB NoSQL)</h3>
             <span style="font-size: 12px; color: var(--color-secondary); font-weight: 600;">Pipeline d'agrégation $group</span>
@@ -348,7 +500,7 @@
             <p style="color: var(--color-text-muted); font-size: 13px;">Chargement des statistiques...</p>
         </div>
 
-        <!-- Section 2 : Gestion & Configuration des Menus (Admin & Employé) -->
+        <!-- Section : Gestion & Configuration des Menus (Admin & Employé) -->
         <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
             <div>
                 <h3 style="font-size: 18px;">Gestion des Menus & Carte</h3>
@@ -360,7 +512,6 @@
             </div>
         </div>
 
-        <!-- Mini-formulaire d'ajout d'un plat avec allergènes -->
         <div id="plat-editor-panel" class="menu-editor-card" style="display: none; border-top-color: var(--color-secondary);">
             <h4 style="margin-bottom: 14px; font-size: 15px;">Ajouter un plat au référentiel</h4>
             <form id="plat-form">
@@ -393,7 +544,6 @@
             </form>
         </div>
 
-        <!-- Formulaire Création / Édition d'un Menu -->
         <div id="menu-editor-panel" class="menu-editor-card" style="display: none;">
             <h4 id="menu-editor-title" style="margin-bottom: 16px; font-size: 16px;">Créer un nouveau menu</h4>
             <form id="menu-form">
@@ -467,7 +617,6 @@
             </form>
         </div>
 
-        <!-- Tableau des Menus -->
         <div class="orders-table-wrapper" style="margin-bottom: 48px;">
             <table class="admin-table">
                 <thead>
@@ -490,7 +639,7 @@
             </table>
         </div>
 
-        <!-- Section 3 : Gestion des Commandes (avec Filtres par Statut & Client) -->
+        <!-- Section : Gestion des Commandes -->
         <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
             <div>
                 <h3 style="font-size: 18px;">Gestion des Commandes</h3>
@@ -543,11 +692,11 @@
             </table>
         </div>
 
-        <!-- Section 4 : Gestion des Horaires d'Ouverture (Admin & Employé) -->
+        <!-- Section : Horaires d'Ouverture -->
         <div style="margin-top: 48px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
             <div>
                 <h3 style="font-size: 18px;">Horaires d'Ouverture</h3>
-                <span style="font-size: 12px; color: var(--color-text-muted);">Configuration des créneaux d'accueil et de livraison affichés aux clients</span>
+                <span style="font-size: 12px; color: var(--color-text-muted);">Configuration des créneaux d'accueil et de livraison affichés dans le pied de page</span>
             </div>
         </div>
 
@@ -560,7 +709,7 @@
             </form>
         </div>
 
-        <!-- Section 5 : Modération des Avis Clients -->
+        <!-- Section : Modération des Avis Clients -->
         <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
             <h3 style="font-size: 18px;">Modération des Avis Clients</h3>
             <span style="font-size: 12px; color: var(--color-text-muted);">Approbation avant publication sur la vitrine</span>
@@ -588,7 +737,7 @@
             </table>
         </div>
 
-        <!-- Section 6 : Messages & Demandes de Devis (Contact) -->
+        <!-- Section : Messages & Demandes de Devis -->
         <div style="margin-top: 48px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
             <h3 style="font-size: 18px;">Messages & Demandes de Devis</h3>
             <span style="font-size: 12px; color: var(--color-text-muted);">Réception directe depuis le formulaire de contact</span>
@@ -618,7 +767,7 @@
 
     </main>
 
-    <!-- Modale d'annulation de commande par l'équipe (Contact client + Motif obligatoires) -->
+    <!-- Modale d'annulation de commande par l'équipe -->
     <div id="modal-staff-cancel" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
         <div style="background: #FFFFFF; border-radius: var(--radius-md); padding: 28px; max-width: 480px; width: 92%; box-shadow: var(--shadow-modal);">
             <h3 style="margin-bottom: 8px; color: var(--color-primary);">Annulation de commande</h3>
@@ -653,6 +802,6 @@
         </div>
     </footer>
 
-    <script src="/js/admin.js?v=5"></script>
+    <script src="/js/admin.js?v=6"></script>
 </body>
 </html>

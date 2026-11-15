@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\MenuModel;
 use App\Models\CommandeModel;
+use App\Models\MenuViewRepository;
 use App\Services\OrderCalculatorService;
 use App\Security\AuthGuard;
 use Exception;
@@ -137,6 +138,59 @@ class CommandeController
                 'message' => $e->getMessage()
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
         }
+    }
+
+    /**
+     * Endpoint Admin : GET /api/admin/stats/commandes-menus (MongoDB NoSQL)
+     */
+    public function statsCommandesMenus(): void
+    {
+        $authUser = AuthGuard::getAuthenticatedUser();
+        if (!$authUser || ($authUser['role'] ?? '') !== 'admin') {
+            http_response_code(403);
+            echo json_encode(['statut' => 'erreur', 'message' => 'Accès réservé à l’administrateur.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $repo = new MenuViewRepository();
+        $donnees = $repo->getStatistiquesCommandesParMenu($this->getPdo());
+
+        http_response_code(200);
+        echo json_encode([
+            'statut'  => 'succes',
+            'source'  => $repo->isConnected() ? 'MongoDB Atlas (NoSQL)' : 'Cache analytique NoSQL',
+            'donnees' => $donnees
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Endpoint Admin : GET /api/admin/stats/chiffre-affaires?menu_id=&date_debut=&date_fin=
+     */
+    public function chiffreAffaires(): void
+    {
+        $authUser = AuthGuard::getAuthenticatedUser();
+        if (!$authUser || ($authUser['role'] ?? '') !== 'admin') {
+            http_response_code(403);
+            echo json_encode(['statut' => 'erreur', 'message' => 'Accès réservé à l’administrateur.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $menuId = isset($_GET['menu_id']) && $_GET['menu_id'] !== '' ? (int)$_GET['menu_id'] : null;
+        $dateDebut = trim((string)($_GET['date_debut'] ?? ''));
+        $dateFin = trim((string)($_GET['date_fin'] ?? ''));
+
+        $resultat = $this->commandeModel->getChiffreAffairesParMenu(
+            $menuId,
+            $dateDebut !== '' ? $dateDebut : null,
+            $dateFin !== '' ? $dateFin : null
+        );
+
+        http_response_code(200);
+        echo json_encode([
+            'statut'   => 'succes',
+            'par_menu' => $resultat['par_menu'],
+            'totaux'   => $resultat['totaux']
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
     }
 
     /**

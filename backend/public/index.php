@@ -184,6 +184,33 @@ if ($uri === '/api/admin/horaires' && $method === 'PUT') {
     exit;
 }
 
+// Espace Administrateur (José) - Gestion des comptes Employés
+if ($uri === '/api/admin/employes' && $method === 'GET') {
+    (new AuthController())->adminListEmployes();
+    exit;
+}
+
+if ($uri === '/api/admin/employes' && $method === 'POST') {
+    (new AuthController())->adminCreateEmploye();
+    exit;
+}
+
+if (preg_match('#^/api/admin/employes/([0-9]+)/statut$#', $uri, $matches) && $method === 'PUT') {
+    (new AuthController())->adminToggleEmployeStatut((int)$matches[1]);
+    exit;
+}
+
+// Espace Administrateur (José) - Graphique NoSQL & Calcul du Chiffre d'Affaires
+if ($uri === '/api/admin/stats/commandes-menus' && $method === 'GET') {
+    (new CommandeController())->statsCommandesMenus();
+    exit;
+}
+
+if ($uri === '/api/admin/stats/chiffre-affaires' && $method === 'GET') {
+    (new CommandeController())->chiffreAffaires();
+    exit;
+}
+
 // Statistiques NoSQL (MongoDB)
 if ($uri === '/api/stats/popularite' && $method === 'GET') {
     (new MenuController())->popularite();

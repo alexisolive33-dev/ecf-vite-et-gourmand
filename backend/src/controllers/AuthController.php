@@ -3,16 +3,32 @@
 namespace App\Controllers;
 
 use App\Config\Database;
+use App\Models\UserModel;
 use App\Security\AuthGuard;
 use PDO;
 
 class AuthController
 {
     private PDO $db;
+    private UserModel $userModel;
 
     public function __construct()
     {
         $this->db = Database::getConnection();
+        $this->userModel = new UserModel();
+    }
+
+    /**
+     * Vérifie que l'utilisateur connecté possède le rôle 'admin'
+     */
+    private function requireAdminOnly(): ?array
+    {
+        $authUser = AuthGuard::getAuthenticatedUser();
+        if (!$authUser || ($authUser['role'] ?? '') !== 'admin') {
+            $this->repondreJson(403, 'erreur', 'Action strictement réservée à l’administrateur (José).');
+            return null;
+        }
+        return $authUser;
     }
 
     /**
@@ -44,9 +60,13 @@ class AuthController
             return;
         }
 
+        if (isset($user['est_actif']) && (int)$user['est_actif'] === 0) {
+            $this->repondreJson(403, 'erreur', 'Votre compte a été désactivé par l\'administrateur. Veuillez contacter la direction.');
+            return;
+        }
+
         $token = AuthGuard::generateToken($user);
 
-        // Renvoyer l'ensemble des informations pour le pré-remplissage automatique des commandes
         $this->repondreJson(200, 'succes', 'Connexion réussie', [
             'token' => $token,
             'utilisateur' => [
@@ -89,7 +109,6 @@ class AuthController
             return;
         }
 
-        // Exigence ECF : 10 caractères min., 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial
         $regexSecurite = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$/';
         if (!preg_match($regexSecurite, $motDePasse)) {
             $this->repondreJson(422, 'erreur', 'Le mot de passe doit contenir au minimum 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.');
@@ -103,13 +122,11 @@ class AuthController
             return;
         }
 
-        // Hachage bcrypt obligatoire
         $hash = password_hash($motDePasse, PASSWORD_BCRYPT);
 
-        // Rôle verrouillé côté serveur sur 'client'
         $insert = $this->db->prepare('
-            INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, telephone, adresse_postale, code_postal, ville, role)
-            VALUES (:nom, :prenom, :email, :pass, :tel, :adresse, :cp, :ville, :role)
+            INSERT INTO utilisateur (nom, prenom, email, mot_de_passe, telephone, adresse_postale, code_postal, ville, role, est_actif)
+            VALUES (:nom, :prenom, :email, :pass, :tel, :adresse, :cp, :ville, :role, 1)
         ');
 
         $succes = $insert->execute([
@@ -135,6 +152,92 @@ class AuthController
     }
 
     /**
+     * Endpoint Admin : GET /api/admin/employes
+     */
+    public function adminListEmployes(): void
+    {
+        if (!$this->requireAdminOnly()) return;
+
+        $employes = $this->userModel->findAllEmployes();
+        $this->repondreJson(200, 'succes', 'Liste des employés récupérée', [
+            'employes' => $employes
+        ]);
+    }
+
+    /**
+     * Endpoint Admin : POST /api/admin/employes
+     * Crée un compte de type 'employe' (jamais 'admin') et notifie par mail sans le mot de passe
+     */
+    public function adminCreateEmploye(): void
+    {
+        if (!$this->requireAdminOnly()) return;
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+
+        if (isset($data['role']) && strtolower(trim((string)$data['role'])) === 'admin') {
+            $this->repondreJson(403, 'erreur', 'La création d\'un compte Administrateur est strictement interdite depuis l\'application.');
+            return;
+        }
+
+        $email = filter_var(trim($data['email'] ?? ''), FILTER_VALIDATE_EMAIL);
+        $motDePasse = (string)($data['mot_de_passe'] ?? '');
+        $prenom = trim($data['prenom'] ?? '');
+        $nom = trim($data['nom'] ?? '');
+
+        if (!$email || $motDePasse === '') {
+            $this->repondreJson(422, 'erreur', 'L\'adresse e-mail (identifiant) et le mot de passe sont obligatoires.');
+            return;
+        }
+
+        $regexSecurite = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$/';
+        if (!preg_match($regexSecurite, $motDePasse)) {
+            $this->repondreJson(422, 'erreur', 'Le mot de passe doit contenir au minimum 10 caractères, une majuscule, une minuscule, un chiffre et un caractère spécial.');
+            return;
+        }
+
+        if ($this->userModel->findByEmail($email)) {
+            $this->repondreJson(409, 'erreur', 'Un compte utilise déjà cette adresse e-mail.');
+            return;
+        }
+
+        $hash = password_hash($motDePasse, PASSWORD_BCRYPT);
+        $newId = $this->userModel->createEmploye($email, $hash, $prenom, $nom);
+
+        // Notification par mail SANS communiquer le mot de passe (exigence ECF)
+        $sujet = 'Création de votre compte collaborateur - Vite & Gourmand';
+        $corps = "Bonjour,\n\nUn compte collaborateur (rôle : employé) vient d'être créé pour vous sur la plateforme Vite & Gourmand avec l'identifiant : {$email}.\n\nPour des raisons de sécurité, votre mot de passe n'est pas communiqué dans cet e-mail. Veuillez vous rapprocher directement de l'administrateur (José) afin de l'obtenir.";
+        @mail($email, $sujet, $corps, 'From: contact@vitegourmand.fr');
+
+        $this->repondreJson(201, 'succes', "Compte employé créé avec succès pour {$email}. Un e-mail de notification (sans le mot de passe) lui a été envoyé ; il devra se rapprocher de vous pour obtenir son mot de passe.", [
+            'id' => $newId
+        ]);
+    }
+
+    /**
+     * Endpoint Admin : PUT /api/admin/employes/{id}/statut
+     * Rend un compte employé inutilisable (ou le réactive)
+     */
+    public function adminToggleEmployeStatut(int $id): void
+    {
+        if (!$this->requireAdminOnly()) return;
+
+        $data = json_decode(file_get_contents('php://input'), true) ?? [];
+        $estActif = isset($data['est_actif']) ? (bool)$data['est_actif'] : false;
+
+        $updated = $this->userModel->setEmployeActif($id, $estActif);
+        if (!$updated) {
+            $this->repondreJson(404, 'erreur', 'Compte employé introuvable ou déjà dans cet état.');
+            return;
+        }
+
+        $msg = $estActif
+            ? "Le compte employé #$id a été réactivé."
+            : "Le compte employé #$id a été désactivé et rendu inutilisable.";
+
+        $this->repondreJson(200, 'succes', $msg);
+    }
+
+    /**
      * Endpoint : POST /api/auth/forgot-password
      */
     public function forgotPassword(): void
@@ -147,7 +250,6 @@ class AuthController
             return;
         }
 
-        // Protection OWASP : toujours répondre avec succès pour éviter l'énumération des comptes
         $stmt = $this->db->prepare('SELECT id, prenom FROM utilisateur WHERE email = :email LIMIT 1');
         $stmt->execute([':email' => $email]);
         $user = $stmt->fetch();

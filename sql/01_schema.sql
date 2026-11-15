@@ -5,6 +5,7 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS `horaire`;
 DROP TABLE IF EXISTS `contact_message`;
 DROP TABLE IF EXISTS `avis`;
 DROP TABLE IF EXISTS `commande_historique`;
@@ -33,8 +34,9 @@ CREATE TABLE `utilisateur` (
     `code_postal` VARCHAR(10) NOT NULL DEFAULT '33000',
     `ville` VARCHAR(80) NOT NULL DEFAULT 'Bordeaux',
     `role` ENUM('client', 'employe', 'admin') NOT NULL DEFAULT 'client',
+    `est_actif` BOOLEAN NOT NULL DEFAULT TRUE,
     `date_creation` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    INDEX `idx_utilisateur_role` (`role`)
+    INDEX `idx_utilisateur_role` (`role`, `est_actif`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- -----------------------------------------------------------------------------
@@ -124,7 +126,18 @@ CREATE TABLE `commande` (
     `sous_total_repas` DECIMAL(8,2) NOT NULL,
     `montant_remise` DECIMAL(8,2) NOT NULL DEFAULT 0.00,
     `total_ttc` DECIMAL(8,2) NOT NULL,
-    `statut` ENUM('en_attente', 'validee', 'en_preparation', 'livree', 'annulee') NOT NULL DEFAULT 'en_attente',
+    `statut` ENUM(
+        'en_attente',
+        'validee',
+        'en_preparation',
+        'en_cours_livraison',
+        'livree',
+        'attente_retour_materiel',
+        'terminee',
+        'annulee'
+    ) NOT NULL DEFAULT 'en_attente',
+    `mode_contact_annulation` VARCHAR(30) NULL,
+    `motif_annulation` TEXT NULL,
     CONSTRAINT `fk_commande_utilisateur` 
         FOREIGN KEY (`utilisateur_id`) REFERENCES `utilisateur` (`id`) 
         ON DELETE RESTRICT ON UPDATE CASCADE,
@@ -194,10 +207,29 @@ CREATE TABLE `contact_message` (
 CREATE TABLE `commande_historique` (
     `id` INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `commande_id` INT UNSIGNED NOT NULL,
-    `statut` ENUM('en_attente', 'validee', 'en_preparation', 'livree', 'annulee') NOT NULL,
+    `statut` ENUM(
+        'en_attente',
+        'validee',
+        'en_preparation',
+        'en_cours_livraison',
+        'livree',
+        'attente_retour_materiel',
+        'terminee',
+        'annulee'
+    ) NOT NULL,
     `date_changement` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT `fk_historique_commande`
         FOREIGN KEY (`commande_id`) REFERENCES `commande` (`id`)
         ON DELETE CASCADE ON UPDATE CASCADE,
     INDEX `idx_historique_commande` (`commande_id`, `date_changement`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- -----------------------------------------------------------------------------
+-- 12. Table : horaire (Horaires d'ouverture configurables)
+-- -----------------------------------------------------------------------------
+CREATE TABLE `horaire` (
+    `id` TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `jour_semaine` VARCHAR(50) NOT NULL UNIQUE,
+    `heures_ouverture` VARCHAR(120) NOT NULL,
+    `ordre` TINYINT UNSIGNED NOT NULL DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
