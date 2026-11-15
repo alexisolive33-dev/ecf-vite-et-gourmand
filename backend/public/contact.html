@@ -217,9 +217,11 @@
 
                 <div class="info-card-vg">
                     <h3><span aria-hidden="true">🕒</span> Permanence Traiteur</h3>
-                    <p><strong>Lundi – Vendredi :</strong> 08h30 – 19h00</p>
-                    <p><strong>Samedi :</strong> 09h00 – 20h00</p>
-                    <p><strong>Dimanche :</strong> 09h00 – 15h00 (Livraisons programmées)</p>
+                    <div id="contact-horaires-list">
+                        <p><strong>Lundi au Vendredi :</strong> 08h30 – 19h00</p>
+                        <p><strong>Samedi :</strong> 09h00 – 20h00</p>
+                        <p><strong>Dimanche :</strong> 09h00 – 15h00</p>
+                    </div>
                 </div>
 
                 <div class="info-card-vg info-card-delivery">
@@ -260,7 +262,35 @@
     </footer>
 
     <script>
+        async function chargerHorairesContact() {
+            const container = document.getElementById('contact-horaires-list');
+            if (!container) return;
+
+            try {
+                const res = await fetch('/api/horaires');
+                if (!res.ok) return;
+                const data = await res.json();
+                const horaires = Array.isArray(data) ? data : (data.horaires || []);
+
+                if (horaires.length > 0) {
+                    container.innerHTML = '';
+                    horaires.forEach((h) => {
+                        const p = document.createElement('p');
+                        const strong = document.createElement('strong');
+                        strong.textContent = `${h.jour_semaine} : `;
+                        p.appendChild(strong);
+                        p.appendChild(document.createTextNode(h.heures_ouverture));
+                        container.appendChild(p);
+                    });
+                }
+            } catch (err) {
+                // Conserve les horaires par défaut en cas d'erreur réseau
+            }
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
+            chargerHorairesContact();
+
             const form = document.getElementById('form-contact');
             if (!form) return;
 
