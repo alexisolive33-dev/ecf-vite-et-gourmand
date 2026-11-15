@@ -47,7 +47,6 @@
             border-bottom: 1px solid var(--color-border);
         }
 
-        /* Cartes Statistiques NoSQL */
         .stats-grid-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -93,7 +92,6 @@
             margin-left: 4px;
         }
 
-        /* Tableaux Back-Office */
         .orders-table-wrapper {
             background: var(--color-bg-card);
             border: 1px solid var(--color-border);
@@ -288,6 +286,27 @@
             border-radius: 6px;
             border: 1px solid var(--color-border);
         }
+
+        .orders-filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            background: #FAF9F7;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-md);
+            padding: 14px 18px;
+            margin-bottom: 14px;
+        }
+
+        .orders-filter-bar input,
+        .orders-filter-bar select {
+            padding: 7px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: var(--radius-sm);
+            font-size: 13px;
+            background: #FFFFFF;
+        }
     </style>
 </head>
 <body>
@@ -315,7 +334,7 @@
             <span class="surtitre-or">PILOTAGE EN TEMPS RÉEL</span>
             <h1>Tableau de Bord Julie & José</h1>
             <p style="color: var(--color-text-muted); font-size: 14px; margin-top: 4px;">
-                Configuration des menus et plats, supervision des réservations clients, modération des avis et métriques de consultation.
+                Configuration des menus, plats et horaires, supervision des commandes, modération des avis et métriques de consultation.
             </p>
         </div>
 
@@ -471,10 +490,34 @@
             </table>
         </div>
 
-        <!-- Section 3 : Commandes SQL MariaDB -->
-        <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
-            <h3 style="font-size: 18px;">Gestion des Commandes</h3>
-            <span style="font-size: 12px; color: var(--color-text-muted);">Transactions ACID & Verrous de stock</span>
+        <!-- Section 3 : Gestion des Commandes (avec Filtres par Statut & Client) -->
+        <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <div>
+                <h3 style="font-size: 18px;">Gestion des Commandes</h3>
+                <span style="font-size: 12px; color: var(--color-text-muted);">Suivi logistique, prêt de matériel (10j ouvrés / 600 €) et annulation encadrée</span>
+            </div>
+        </div>
+
+        <div class="orders-filter-bar">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <label for="filter-order-statut" style="font-size: 12px; font-weight: 700;">Filtrer par statut :</label>
+                <select id="filter-order-statut">
+                    <option value="">Tous les statuts</option>
+                    <option value="en_attente">En attente</option>
+                    <option value="validee">Acceptée</option>
+                    <option value="en_preparation">En préparation</option>
+                    <option value="en_cours_livraison">En cours de livraison</option>
+                    <option value="livree">Livrée</option>
+                    <option value="attente_retour_materiel">En attente du retour de matériel</option>
+                    <option value="terminee">Terminée</option>
+                    <option value="annulee">Annulée</option>
+                </select>
+            </div>
+            <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 240px;">
+                <label for="filter-order-client" style="font-size: 12px; font-weight: 700;">Client / N° :</label>
+                <input type="text" id="filter-order-client" placeholder="Rechercher un client (nom, email) ou n° commande..." style="flex: 1;">
+            </div>
+            <button type="button" id="btn-reset-order-filters" class="btn-secondary-gold">Réinitialiser</button>
         </div>
 
         <div class="orders-table-wrapper">
@@ -500,8 +543,25 @@
             </table>
         </div>
 
-        <!-- Section 4 : Modération des Avis Clients -->
+        <!-- Section 4 : Gestion des Horaires d'Ouverture (Admin & Employé) -->
         <div style="margin-top: 48px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <h3 style="font-size: 18px;">Horaires d'Ouverture</h3>
+                <span style="font-size: 12px; color: var(--color-text-muted);">Configuration des créneaux d'accueil et de livraison affichés aux clients</span>
+            </div>
+        </div>
+
+        <div class="menu-editor-card" style="border-top-color: var(--color-secondary); margin-bottom: 48px;">
+            <form id="horaires-form">
+                <div id="horaires-inputs-container" class="menu-form-grid">
+                    <p style="font-size: 13px; color: var(--color-text-muted);">Chargement des horaires...</p>
+                </div>
+                <button type="submit" class="btn-primary-bordeaux">Enregistrer les horaires</button>
+            </form>
+        </div>
+
+        <!-- Section 5 : Modération des Avis Clients -->
+        <div style="margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
             <h3 style="font-size: 18px;">Modération des Avis Clients</h3>
             <span style="font-size: 12px; color: var(--color-text-muted);">Approbation avant publication sur la vitrine</span>
         </div>
@@ -528,7 +588,7 @@
             </table>
         </div>
 
-        <!-- Section 5 : Messages & Demandes de Devis (Contact) -->
+        <!-- Section 6 : Messages & Demandes de Devis (Contact) -->
         <div style="margin-top: 48px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between;">
             <h3 style="font-size: 18px;">Messages & Demandes de Devis</h3>
             <span style="font-size: 12px; color: var(--color-text-muted);">Réception directe depuis le formulaire de contact</span>
@@ -558,12 +618,41 @@
 
     </main>
 
+    <!-- Modale d'annulation de commande par l'équipe (Contact client + Motif obligatoires) -->
+    <div id="modal-staff-cancel" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 10000; align-items: center; justify-content: center;">
+        <div style="background: #FFFFFF; border-radius: var(--radius-md); padding: 28px; max-width: 480px; width: 92%; box-shadow: var(--shadow-modal);">
+            <h3 style="margin-bottom: 8px; color: var(--color-primary);">Annulation de commande</h3>
+            <p style="font-size: 13px; color: var(--color-text-muted); margin-bottom: 16px;">
+                Conformément à la procédure Vite & Gourmand, vous devez impérativement avoir contacté le client avant d'annuler sa commande.
+            </p>
+            <form id="form-staff-cancel">
+                <input type="hidden" id="cancel-cmd-id">
+                <div class="menu-form-group" style="margin-bottom: 14px;">
+                    <label for="cancel-mode-contact">Mode de contact effectué avec le client *</label>
+                    <select id="cancel-mode-contact" required>
+                        <option value="">-- Sélectionnez le mode de contact --</option>
+                        <option value="Appel GSM">Appel GSM (téléphone)</option>
+                        <option value="E-mail">E-mail</option>
+                    </select>
+                </div>
+                <div class="menu-form-group" style="margin-bottom: 18px;">
+                    <label for="cancel-motif">Motif précis de l'annulation *</label>
+                    <textarea id="cancel-motif" rows="3" required placeholder="Ex : Report de l'événement confirmé par téléphone avec le client..."></textarea>
+                </div>
+                <div style="display: flex; justify-content: flex-end; gap: 10px;">
+                    <button type="button" id="btn-abort-staff-cancel" class="btn-secondary-gold">Ne pas annuler</button>
+                    <button type="submit" class="btn-primary-bordeaux">Confirmer l'annulation</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
     <footer class="site-footer" style="padding: 24px 0; margin-top: 60px;">
         <div class="container-1296" style="text-align: center; font-size: 12px; color: #9CA3AF;">
             &copy; 2026 Vite & Gourmand — Système de gestion traiteur réservé à l'équipe. Tous droits réservés.
         </div>
     </footer>
 
-    <script src="/js/admin.js?v=4"></script>
+    <script src="/js/admin.js?v=5"></script>
 </body>
 </html>

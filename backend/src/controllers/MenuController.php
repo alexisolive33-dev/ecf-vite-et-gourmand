@@ -289,4 +289,52 @@ class MenuController
             'plat_ids' => $platIds
         ];
     }
+
+    /**
+     * Endpoint : GET /api/horaires
+     */
+    public function horaires(): void
+    {
+        $pdo = \App\Config\Database::getConnection();
+        $stmt = $pdo->query("SELECT id, jour_semaine, heures_ouverture, ordre FROM horaire ORDER BY ordre ASC, id ASC");
+        $horaires = $stmt->fetchAll();
+
+        http_response_code(200);
+        echo json_encode([
+            'statut'   => 'succes',
+            'horaires' => $horaires
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    }
+
+    /**
+     * Endpoint Back-Office : PUT /api/admin/horaires
+     */
+    public function updateHoraires(): void
+    {
+        $payload = json_decode(file_get_contents('php://input'), true) ?? [];
+        $liste = $payload['horaires'] ?? [];
+
+        if (!is_array($liste) || empty($liste)) {
+            http_response_code(400);
+            echo json_encode(['statut' => 'erreur', 'message' => 'Liste des horaires manquante.'], JSON_UNESCAPED_UNICODE);
+            return;
+        }
+
+        $pdo = \App\Config\Database::getConnection();
+        $stmt = $pdo->prepare("UPDATE horaire SET heures_ouverture = :heures WHERE id = :id");
+
+        foreach ($liste as $item) {
+            $id = (int)($item['id'] ?? 0);
+            $heures = trim((string)($item['heures_ouverture'] ?? ''));
+            if ($id > 0 && $heures !== '') {
+                $stmt->execute([':heures' => $heures, ':id' => $id]);
+            }
+        }
+
+        http_response_code(200);
+        echo json_encode([
+            'statut'  => 'succes',
+            'message' => 'Les horaires d’ouverture ont été mis à jour.'
+        ], JSON_UNESCAPED_UNICODE);
+    }
 }

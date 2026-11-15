@@ -93,14 +93,41 @@ class CommandeController
             return;
         }
 
+        $nouveauStatut = (string)$donnees['statut'];
+        $modeContact = trim((string)($donnees['mode_contact'] ?? ''));
+        $motifAnnulation = trim((string)($donnees['motif_annulation'] ?? ''));
+
+        if ($nouveauStatut === 'annulee') {
+            if (!in_array($modeContact, ['Appel GSM', 'E-mail'], true) || $motifAnnulation === '') {
+                http_response_code(422);
+                echo json_encode([
+                    'statut'  => 'erreur',
+                    'message' => 'Vous devez contacter le client (Appel GSM ou E-mail) et saisir un motif avant d’annuler la commande.'
+                ], JSON_UNESCAPED_UNICODE);
+                return;
+            }
+        }
+
         try {
-            $this->commandeModel->updateStatut($id, (string)$donnees['statut']);
+            $this->commandeModel->updateStatut(
+                $id,
+                $nouveauStatut,
+                $nouveauStatut === 'annulee' ? $modeContact : null,
+                $nouveauStatut === 'annulee' ? $motifAnnulation : null
+            );
+
+            $messageConfirmation = "Le statut de la commande #$id a été mis à jour.";
+            if ($nouveauStatut === 'attente_retour_materiel') {
+                $messageConfirmation = "Statut « En attente du retour de matériel » enregistré. Le client est notifié qu’il dispose de 10 jours ouvrés pour restituer le matériel (600 € de frais au-delà, conformément aux CGV).";
+            } elseif ($nouveauStatut === 'annulee') {
+                $messageConfirmation = "Commande #$id annulée (contact : $modeContact) et stock restitué.";
+            }
 
             http_response_code(200);
             echo json_encode([
                 'statut'         => 'succes',
-                'message'        => "Le statut de la commande #$id a été mis à jour.",
-                'nouveau_statut' => $donnees['statut']
+                'message'        => $messageConfirmation,
+                'nouveau_statut' => $nouveauStatut
             ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
 
         } catch (Exception $e) {

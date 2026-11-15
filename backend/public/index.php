@@ -173,6 +173,17 @@ if ($uri === '/api/admin/plats' && $method === 'POST') {
     exit;
 }
 
+// Horaires d'ouverture - Public & Back-Office (Admin & Employé)
+if ($uri === '/api/horaires' && $method === 'GET') {
+    (new MenuController())->horaires();
+    exit;
+}
+
+if ($uri === '/api/admin/horaires' && $method === 'PUT') {
+    (new MenuController())->updateHoraires();
+    exit;
+}
+
 // Statistiques NoSQL (MongoDB)
 if ($uri === '/api/stats/popularite' && $method === 'GET') {
     (new MenuController())->popularite();

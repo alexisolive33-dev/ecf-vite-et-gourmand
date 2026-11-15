@@ -10,7 +10,16 @@ class CommandeModel
 {
     private PDO $db;
 
-    private const STATUTS_VALIDES = ['en_attente', 'validee', 'en_preparation', 'livree', 'annulee'];
+    private const STATUTS_VALIDES = [
+        'en_attente',
+        'validee',
+        'en_preparation',
+        'en_cours_livraison',
+        'livree',
+        'attente_retour_materiel',
+        'terminee',
+        'annulee'
+    ];
 
     public function __construct()
     {
@@ -36,10 +45,13 @@ class CommandeModel
                 c.montant_remise, 
                 c.total_ttc, 
                 c.statut,
+                c.mode_contact_annulation,
+                c.motif_annulation,
                 u.id AS client_id,
                 u.nom AS client_nom,
                 u.prenom AS client_prenom,
-                u.email AS client_email
+                u.email AS client_email,
+                u.telephone AS client_telephone
             FROM commande c
             INNER JOIN utilisateur u ON u.id = c.utilisateur_id
             ORDER BY c.date_commande DESC
@@ -65,25 +77,64 @@ class CommandeModel
     }
 
     /**
-     * Met à jour le statut d'une commande et horodate le changement dans commande_historique
+     * Met à jour le statut d'une commande (avec mode de contact et motif si annulation)
      */
-    public function updateStatut(int $id, string $nouveauStatut): bool
-    {
+    public function updateStatut(
+        int $id,
+        string $nouveauStatut,
+        ?string $modeContact = null,
+        ?string $motifAnnulation = null
+    ): bool {
         if (!in_array($nouveauStatut, self::STATUTS_VALIDES, true)) {
-            throw new Exception("Statut '$nouveauStatut' invalide. Statuts acceptés : " . implode(', ', self::STATUTS_VALIDES));
+            throw new Exception("Statut '$nouveauStatut' invalide.");
         }
 
         $this->db->beginTransaction();
         try {
-            $stmt = $this->db->prepare("
-                UPDATE commande 
-                SET statut = :statut 
-                WHERE id = :id
-            ");
-            $ok = $stmt->execute([
-                ':statut' => $nouveauStatut,
-                ':id'     => $id
-            ]);
+            $stmtCurrent = $this->db->prepare("SELECT statut FROM commande WHERE id = :id FOR UPDATE");
+            $stmtCurrent->execute([':id' => $id]);
+            $current = $stmtCurrent->fetch(PDO::FETCH_ASSOC);
+
+            if (!$current) {
+                throw new Exception("Commande #$id introuvable.");
+            }
+
+            if ($nouveauStatut === 'annulee') {
+                $stmt = $this->db->prepare("
+                    UPDATE commande 
+                    SET statut = 'annulee',
+                        mode_contact_annulation = :mode_contact,
+                        motif_annulation = :motif
+                    WHERE id = :id
+                ");
+                $ok = $stmt->execute([
+                    ':mode_contact' => $modeContact,
+                    ':motif'        => $motifAnnulation,
+                    ':id'           => $id
+                ]);
+
+                // Restitution du stock si la commande n'était pas déjà annulée
+                if ($current['statut'] !== 'annulee') {
+                    $stmtLignes = $this->db->prepare("SELECT menu_id FROM ligne_commande WHERE commande_id = :id");
+                    $stmtLignes->execute([':id' => $id]);
+                    foreach ($stmtLignes->fetchAll(PDO::FETCH_ASSOC) as $ligne) {
+                        if (!empty($ligne['menu_id'])) {
+                            $this->db->prepare("UPDATE menu SET stock_disponible = stock_disponible + 1 WHERE id = :mid")
+                                     ->execute([':mid' => $ligne['menu_id']]);
+                        }
+                    }
+                }
+            } else {
+                $stmt = $this->db->prepare("
+                    UPDATE commande 
+                    SET statut = :statut 
+                    WHERE id = :id
+                ");
+                $ok = $stmt->execute([
+                    ':statut' => $nouveauStatut,
+                    ':id'     => $id
+                ]);
+            }
 
             $stmtHist = $this->db->prepare("
                 INSERT INTO commande_historique (commande_id, statut, date_changement)
@@ -294,7 +345,6 @@ class CommandeModel
                 ':taux_remise_applique'  => $simulation['taux_remise']
             ]);
 
-            // Enregistrement de l'état initial horodaté
             $stmtHist = $this->db->prepare("
                 INSERT INTO commande_historique (commande_id, statut, date_changement)
                 VALUES (:commande_id, 'en_attente', NOW())

@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Contrôle d'accès côté client
     const token = localStorage.getItem('auth_token') || localStorage.getItem('token');
     const userRaw = sessionStorage.getItem('vg_user') || localStorage.getItem('user_profile') || localStorage.getItem('user');
 
@@ -20,7 +19,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
     }
 
-    // Vérification stricte du rôle (Admin ou Employé)
     const role = (user.role || '').toLowerCase().trim();
     if (role !== 'admin' && role !== 'employe') {
         alert("Accès réservé à l'équipe Vite & Gourmand.");
@@ -32,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
         sessionStorage.setItem('vg_user', JSON.stringify(user));
     }
 
-    // Affichage utilisateur & adaptation visuelle selon le rôle
     const userDisplay = document.getElementById('user-display');
     if (userDisplay) {
         const roleAffiche = user.role ? user.role.toUpperCase() : 'ADMIN';
@@ -41,12 +38,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (role === 'employe') {
         const pageTitle = document.querySelector('h1');
-        if (pageTitle) pageTitle.textContent = 'Espace Collaborateur — Menus, Commandes, Avis & Messages';
+        if (pageTitle) pageTitle.textContent = 'Espace Collaborateur — Menus, Commandes, Horaires & Avis';
         const tagline = document.querySelector('.brand-tagline');
         if (tagline) tagline.textContent = 'Espace Équipe • Vite & Gourmand';
     }
 
-    // Déconnexion propre
     const btnLogout = document.getElementById('btn-logout');
     if (btnLogout) {
         btnLogout.addEventListener('click', () => {
@@ -68,6 +64,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let referentielPlats = [];
     let referentielAllergenes = [];
     let menusCache = [];
+    let commandesCache = [];
+    let selectEnCoursAnnulation = null;
+    let statutPrecedentAnnulation = 'en_attente';
 
     function escapeHtml(str) {
         return String(str || '')
@@ -77,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .replace(/"/g, '&quot;');
     }
 
-    // 2. Charger les statistiques MongoDB
+    // 1. Statistiques MongoDB
     chargerStatsMongo();
 
     function chargerStatsMongo() {
@@ -106,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-    // 3. GESTION & CONFIGURATION DES MENUS ET PLATS (ADMIN & EMPLOYÉ)
+    // 2. GESTION DES MENUS ET PLATS
     // =========================================================================
     const menuEditorPanel = document.getElementById('menu-editor-panel');
     const menuEditorTitle = document.getElementById('menu-editor-title');
@@ -429,8 +428,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // =========================================================================
-    // 4. GESTION DES COMMANDES SQL
+    // 3. GESTION DES COMMANDES (FILTRES, STATUTS COMPLETS & ANNULATION STAFF)
     // =========================================================================
+    const filterStatutEl = document.getElementById('filter-order-statut');
+    const filterClientEl = document.getElementById('filter-order-client');
+    const btnResetFilters = document.getElementById('btn-reset-order-filters');
+
+    if (filterStatutEl) filterStatutEl.addEventListener('change', appliquerFiltresCommandes);
+    if (filterClientEl) filterClientEl.addEventListener('input', appliquerFiltresCommandes);
+    if (btnResetFilters) {
+        btnResetFilters.addEventListener('click', () => {
+            if (filterStatutEl) filterStatutEl.value = '';
+            if (filterClientEl) filterClientEl.value = '';
+            appliquerFiltresCommandes();
+        });
+    }
+
+    initialiserModalAnnulationStaff();
     chargerCommandes();
 
     function chargerCommandes() {
@@ -441,15 +455,48 @@ document.addEventListener('DOMContentLoaded', () => {
         })
             .then(res => res.json())
             .then(res => {
-                if (res.statut === 'succes' && res.commandes && res.commandes.length > 0) {
-                    renderCommandes(res.commandes);
+                if (res.statut === 'succes' && res.commandes) {
+                    commandesCache = res.commandes;
+                    appliquerFiltresCommandes();
                 } else {
+                    commandesCache = [];
                     tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucune commande trouvée.</td></tr>';
                 }
             })
             .catch(() => {
                 tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des commandes.</td></tr>';
             });
+    }
+
+    function appliquerFiltresCommandes() {
+        const statutFiltre = filterStatutEl ? filterStatutEl.value : '';
+        const recherche = filterClientEl ? filterClientEl.value.toLowerCase().trim() : '';
+
+        const filtrees = commandesCache.filter(cmd => {
+            const st = String(cmd.statut || 'en_attente').toLowerCase();
+            if (statutFiltre && st !== statutFiltre) {
+                return false;
+            }
+            if (recherche) {
+                const haystack = [
+                    cmd.numero_commande,
+                    cmd.client_prenom,
+                    cmd.client_nom,
+                    cmd.client_email,
+                    cmd.ville_livraison
+                ].join(' ').toLowerCase();
+                if (!haystack.includes(recherche)) {
+                    return false;
+                }
+            }
+            return true;
+        });
+
+        if (filtrees.length === 0) {
+            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucune commande ne correspond à ces critères.</td></tr>';
+            return;
+        }
+        renderCommandes(filtrees);
     }
 
     function renderCommandes(commandes) {
@@ -460,6 +507,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const prenom = cmd.client_prenom || cmd.prenom || 'Client';
             const nom = cmd.client_nom || cmd.nom || '';
             const email = cmd.client_email || cmd.email || '-';
+            const tel = cmd.client_telephone || '';
             const idCommande = cmd.id || cmd.commande_id;
             const numeroCommande = cmd.numero_commande || (`CMD-${idCommande}`);
 
@@ -492,25 +540,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 articleStr = `${cmd.menu_titre || cmd.titre} (${cmd.nb_convives || '-'} p.)`;
             }
 
-            const rawStatut = (cmd.statut || 'en_attente').toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+            const st = String(cmd.statut || 'en_attente').toLowerCase().trim();
+            const motifInfo = (st === 'annulee' && cmd.motif_annulation)
+                ? `<div style="font-size: 11px; color: #991B1B; margin-top: 4px;">Contact : ${escapeHtml(cmd.mode_contact_annulation || '-')} • ${escapeHtml(cmd.motif_annulation)}</div>`
+                : '';
 
             tr.innerHTML = `
                 <td><strong>${escapeHtml(numeroCommande)}</strong></td>
                 <td>
                     <div>${escapeHtml(prenom)} ${escapeHtml(nom)}</div>
                     <small style="color: var(--color-text-muted);">${escapeHtml(email)}</small>
+                    ${tel ? `<br><small style="color: var(--color-text-muted);">📞 ${escapeHtml(tel)}</small>` : ''}
                 </td>
                 <td>${dateLivraison}</td>
                 <td>${escapeHtml(ville)} <small>(${distanceKm} km)</small></td>
-                <td>${escapeHtml(articleStr)}</td>
+                <td>${escapeHtml(articleStr)}${motifInfo}</td>
                 <td><strong>${totalTtc} €</strong></td>
                 <td>
-                    <select class="status-select" data-id="${idCommande}" style="padding: 4px 8px; border-radius: 4px; font-weight: 600; font-size: 12px;">
-                        <option value="en_attente" ${rawStatut.includes('attente') ? 'selected' : ''}>En attente</option>
-                        <option value="validee" ${rawStatut.includes('valid') || rawStatut.includes('accept') ? 'selected' : ''}>Validée</option>
-                        <option value="en_preparation" ${rawStatut.includes('prep') ? 'selected' : ''}>En préparation</option>
-                        <option value="livree" ${rawStatut.includes('livr') ? 'selected' : ''}>Livrée</option>
-                        <option value="annulee" ${rawStatut.includes('annul') ? 'selected' : ''}>Annulée</option>
+                    <select class="status-select" data-id="${idCommande}" data-prev="${escapeHtml(st)}" style="padding: 5px 8px; border-radius: 4px; font-weight: 600; font-size: 12px;">
+                        <option value="en_attente" ${st === 'en_attente' ? 'selected' : ''}>En attente</option>
+                        <option value="validee" ${st === 'validee' ? 'selected' : ''}>Acceptée</option>
+                        <option value="en_preparation" ${st === 'en_preparation' ? 'selected' : ''}>En préparation</option>
+                        <option value="en_cours_livraison" ${st === 'en_cours_livraison' ? 'selected' : ''}>En cours de livraison</option>
+                        <option value="livree" ${st === 'livree' ? 'selected' : ''}>Livrée</option>
+                        <option value="attente_retour_materiel" ${st === 'attente_retour_materiel' ? 'selected' : ''}>En attente du retour de matériel</option>
+                        <option value="terminee" ${st === 'terminee' ? 'selected' : ''}>Terminée</option>
+                        <option value="annulee" ${st === 'annulee' ? 'selected' : ''}>Annulée</option>
                     </select>
                 </td>
             `;
@@ -522,31 +577,154 @@ document.addEventListener('DOMContentLoaded', () => {
             select.addEventListener('change', async (e) => {
                 const cmdId = e.target.getAttribute('data-id');
                 const nouveauStatut = e.target.value;
+                const ancienStatut = e.target.getAttribute('data-prev') || 'en_attente';
 
-                try {
-                    const res = await fetch(`/api/admin/commandes/${cmdId}/statut`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                        },
-                        body: JSON.stringify({ statut: nouveauStatut })
-                    });
+                if (nouveauStatut === 'annulee') {
+                    selectEnCoursAnnulation = e.target;
+                    statutPrecedentAnnulation = ancienStatut;
+                    document.getElementById('cancel-cmd-id').value = cmdId;
+                    document.getElementById('cancel-mode-contact').value = '';
+                    document.getElementById('cancel-motif').value = '';
+                    document.getElementById('modal-staff-cancel').style.display = 'flex';
+                    return;
+                }
 
-                    const data = await res.json();
+                await envoyerMiseAJourStatut(cmdId, nouveauStatut, e.target);
+            });
+        });
+    }
 
-                    if (res.ok && data.statut === 'succes') {
-                        e.target.style.backgroundColor = '#DCFCE7';
-                        setTimeout(() => { e.target.style.backgroundColor = ''; }, 1000);
-                    } else {
-                        alert('Erreur : ' + (data.message || 'Impossible de mettre à jour le statut.'));
-                        chargerCommandes();
-                    }
-                } catch (err) {
-                    alert('Erreur de connexion au serveur.');
-                    chargerCommandes();
+    function initialiserModalAnnulationStaff() {
+        const modal = document.getElementById('modal-staff-cancel');
+        const btnAbort = document.getElementById('btn-abort-staff-cancel');
+        const form = document.getElementById('form-staff-cancel');
+
+        if (btnAbort && modal) {
+            btnAbort.addEventListener('click', () => {
+                if (selectEnCoursAnnulation) {
+                    selectEnCoursAnnulation.value = statutPrecedentAnnulation;
+                    selectEnCoursAnnulation = null;
+                }
+                modal.style.display = 'none';
+            });
+        }
+
+        if (form) {
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const cmdId = document.getElementById('cancel-cmd-id').value;
+                const modeContact = document.getElementById('cancel-mode-contact').value;
+                const motif = document.getElementById('cancel-motif').value.trim();
+
+                if (!modeContact || !motif) {
+                    alert('Veuillez renseigner le mode de contact et le motif d’annulation.');
+                    return;
+                }
+
+                const ok = await envoyerMiseAJourStatut(cmdId, 'annulee', selectEnCoursAnnulation, {
+                    mode_contact: modeContact,
+                    motif_annulation: motif
+                });
+
+                if (ok) {
+                    modal.style.display = 'none';
+                    selectEnCoursAnnulation = null;
                 }
             });
+        }
+    }
+
+    async function envoyerMiseAJourStatut(cmdId, nouveauStatut, selectElement, extra = {}) {
+        try {
+            const res = await fetch(`/api/admin/commandes/${cmdId}/statut`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                },
+                body: JSON.stringify({ statut: nouveauStatut, ...extra })
+            });
+
+            const data = await res.json();
+
+            if (res.ok && data.statut === 'succes') {
+                if (nouveauStatut === 'attente_retour_materiel' || nouveauStatut === 'annulee') {
+                    alert(data.message);
+                } else if (selectElement) {
+                    selectElement.style.backgroundColor = '#DCFCE7';
+                    setTimeout(() => { selectElement.style.backgroundColor = ''; }, 1000);
+                }
+                chargerCommandes();
+                return true;
+            } else {
+                alert('Erreur : ' + (data.message || 'Impossible de mettre à jour le statut.'));
+                chargerCommandes();
+                return false;
+            }
+        } catch (err) {
+            alert('Erreur de connexion au serveur.');
+            chargerCommandes();
+            return false;
+        }
+    }
+
+    // =========================================================================
+    // 4. GESTION DES HORAIRES D'OUVERTURE (ADMIN & EMPLOYÉ)
+    // =========================================================================
+    chargerHoraires();
+
+    function chargerHoraires() {
+        const container = document.getElementById('horaires-inputs-container');
+        if (!container) return;
+
+        fetch('/api/horaires')
+            .then(res => res.json())
+            .then(res => {
+                const liste = res.horaires || [];
+                if (res.statut === 'succes' && liste.length > 0) {
+                    container.innerHTML = liste.map(h => `
+                        <div class="menu-form-group">
+                            <label for="horaire-${h.id}">${escapeHtml(h.jour_semaine)}</label>
+                            <input type="text" id="horaire-${h.id}" data-horaire-id="${h.id}" value="${escapeHtml(h.heures_ouverture)}" required>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<p style="font-size:13px; color:var(--color-text-muted);">Aucun horaire configuré.</p>';
+                }
+            })
+            .catch(() => {
+                container.innerHTML = '<p style="font-size:13px; color:var(--color-primary);">Erreur lors du chargement des horaires.</p>';
+            });
+    }
+
+    const horairesForm = document.getElementById('horaires-form');
+    if (horairesForm) {
+        horairesForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const inputs = document.querySelectorAll('[data-horaire-id]');
+            const horaires = Array.from(inputs).map(inp => ({
+                id: Number(inp.getAttribute('data-horaire-id')),
+                heures_ouverture: inp.value.trim()
+            }));
+
+            try {
+                const res = await fetch('/api/admin/horaires', {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                    },
+                    body: JSON.stringify({ horaires })
+                });
+                const data = await res.json();
+                if (res.ok && data.statut === 'succes') {
+                    alert('Les horaires d’ouverture ont été mis à jour avec succès.');
+                } else {
+                    alert('Erreur : ' + (data.message || 'Impossible de sauvegarder les horaires.'));
+                }
+            } catch (err) {
+                alert('Erreur réseau lors de la mise à jour des horaires.');
+            }
         });
     }
 
@@ -604,7 +782,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </td>
                 <td>
                     ${!estValide ? `<button type="button" class="btn-avis-approve" data-id="${avis.id}">✓ Valider</button>` : ''}
-                    <button type="button" class="btn-avis-reject" data-id="${avis.id}">✕ Supprimer</button>
+                    <button type="button" class="btn-avis-reject" data-id="${avis.id}">✕ Refuser</button>
                 </td>
             `;
 
@@ -638,7 +816,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.btn-avis-reject').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const avisId = e.target.getAttribute('data-id');
-                if (!confirm('Supprimer définitivement cet avis ?')) return;
+                if (!confirm('Refuser et supprimer définitivement cet avis ?')) return;
 
                 try {
                     const res = await fetch(`/api/admin/avis/${avisId}`, {
