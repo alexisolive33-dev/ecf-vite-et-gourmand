@@ -69,16 +69,37 @@ document.addEventListener('DOMContentLoaded', () => {
     let statutPrecedentAnnulation = 'en_attente';
     let commandesChartInstance = null;
 
-    function escapeHtml(str) {
-        return String(str || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;');
-    }
-
     function formatEuro(val) {
         return parseFloat(val || 0).toFixed(2).replace('.', ',');
+    }
+
+    function afficherLigneMessageTable(tbody, colspan, texte, isError = false) {
+        if (!tbody) return;
+        const tr = document.createElement('tr');
+        const td = document.createElement('td');
+        td.colSpan = colspan;
+        td.style.textAlign = 'center';
+        td.style.padding = isError ? '20px' : '24px';
+        td.style.color = isError ? 'var(--color-primary)' : 'var(--color-text-muted)';
+        td.textContent = texte;
+        tr.appendChild(td);
+        tbody.replaceChildren(tr);
+    }
+
+    function afficherMessageParagraphe(container, texte, isError = false) {
+        if (!container) return;
+        const p = document.createElement('p');
+        p.style.fontSize = '13px';
+        p.style.color = isError ? 'var(--color-primary)' : 'var(--color-text-muted)';
+        p.textContent = texte;
+        container.replaceChildren(p);
+    }
+
+    function setKpiValue(element, valeur, unite) {
+        if (!element) return;
+        const span = document.createElement('span');
+        span.textContent = unite;
+        element.replaceChildren(document.createTextNode(`${valeur} `), span);
     }
 
     // =========================================================================
@@ -192,30 +213,48 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!res.ok || data.statut !== 'succes') return;
 
             const totaux = data.totaux || {};
-            const kpiCa = document.getElementById('kpi-ca-total');
-            const kpiCmd = document.getElementById('kpi-ca-commandes');
-            const kpiConv = document.getElementById('kpi-ca-convives');
-
-            if (kpiCa) kpiCa.innerHTML = `${formatEuro(totaux.ca_total_ttc)} <span>€</span>`;
-            if (kpiCmd) kpiCmd.innerHTML = `${totaux.total_commandes || 0} <span>commandes</span>`;
-            if (kpiConv) kpiConv.innerHTML = `${totaux.total_convives || 0} <span>convives</span>`;
+            setKpiValue(document.getElementById('kpi-ca-total'), formatEuro(totaux.ca_total_ttc), '€');
+            setKpiValue(document.getElementById('kpi-ca-commandes'), totaux.total_commandes || 0, 'commandes');
+            setKpiValue(document.getElementById('kpi-ca-convives'), totaux.total_convives || 0, 'convives');
 
             const lignes = data.par_menu || [];
             if (lignes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:24px; color:var(--color-text-muted);">Aucune donnée sur cette sélection.</td></tr>';
+                afficherLigneMessageTable(tbody, 6, 'Aucune donnée sur cette sélection.');
                 return;
             }
 
-            tbody.innerHTML = lignes.map(l => `
-                <tr>
-                    <td><strong>${escapeHtml(l.menu_titre)}</strong></td>
-                    <td>${l.nb_commandes}</td>
-                    <td>${l.total_convives} pers.</td>
-                    <td>${formatEuro(l.ca_repas_ttc)} €</td>
-                    <td>${formatEuro(l.ca_livraison_ttc)} €</td>
-                    <td><strong style="color: var(--color-primary);">${formatEuro(l.ca_total_ttc)} €</strong></td>
-                </tr>
-            `).join('');
+            const fragment = document.createDocumentFragment();
+            lignes.forEach(l => {
+                const tr = document.createElement('tr');
+
+                const tdTitre = document.createElement('td');
+                const strongTitre = document.createElement('strong');
+                strongTitre.textContent = l.menu_titre || '';
+                tdTitre.appendChild(strongTitre);
+
+                const tdCmd = document.createElement('td');
+                tdCmd.textContent = String(l.nb_commandes ?? 0);
+
+                const tdConv = document.createElement('td');
+                tdConv.textContent = `${l.total_convives ?? 0} pers.`;
+
+                const tdRepas = document.createElement('td');
+                tdRepas.textContent = `${formatEuro(l.ca_repas_ttc)} €`;
+
+                const tdLivraison = document.createElement('td');
+                tdLivraison.textContent = `${formatEuro(l.ca_livraison_ttc)} €`;
+
+                const tdTotal = document.createElement('td');
+                const strongTotal = document.createElement('strong');
+                strongTotal.style.color = 'var(--color-primary)';
+                strongTotal.textContent = `${formatEuro(l.ca_total_ttc)} €`;
+                tdTotal.appendChild(strongTotal);
+
+                tr.append(tdTitre, tdCmd, tdConv, tdRepas, tdLivraison, tdTotal);
+                fragment.appendChild(tr);
+            });
+
+            tbody.replaceChildren(fragment);
         } catch (err) {
             console.error('Erreur calcul CA:', err);
         }
@@ -269,49 +308,60 @@ document.addEventListener('DOMContentLoaded', () => {
             const employes = data.employes || [];
 
             if (!res.ok || employes.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:24px; color:var(--color-text-muted);">Aucun compte employé enregistré.</td></tr>';
+                afficherLigneMessageTable(tbody, 5, 'Aucun compte employé enregistré.');
                 return;
             }
 
-            tbody.innerHTML = employes.map(emp => {
+            const fragment = document.createDocumentFragment();
+            employes.forEach(emp => {
                 const actif = Number(emp.est_actif) === 1;
-                return `
-                    <tr>
-                        <td><strong>${escapeHtml(emp.prenom)} ${escapeHtml(emp.nom)}</strong></td>
-                        <td>${escapeHtml(emp.email)}</td>
-                        <td><span class="user-badge" style="font-size:11px; padding:3px 10px;">EMPLOYÉ</span></td>
-                        <td>
-                            <span class="avis-badge ${actif ? 'publie' : 'desactive'}">
-                                ${actif ? 'Actif' : 'Désactivé (départ)'}
-                            </span>
-                        </td>
-                        <td>
-                            ${actif
-                                ? `<button type="button" class="btn-avis-reject btn-toggle-emp" data-id="${emp.id}" data-actif="0">Désactiver le compte</button>`
-                                : `<button type="button" class="btn-avis-approve btn-toggle-emp" data-id="${emp.id}" data-actif="1">Réactiver le compte</button>`
-                            }
-                        </td>
-                    </tr>
-                `;
-            }).join('');
+                const tr = document.createElement('tr');
 
-            document.querySelectorAll('.btn-toggle-emp').forEach(btn => {
-                btn.addEventListener('click', async (e) => {
-                    const id = e.target.getAttribute('data-id');
-                    const actif = Number(e.target.getAttribute('data-actif')) === 1;
-                    const msg = actif
+                const tdNom = document.createElement('td');
+                const strongNom = document.createElement('strong');
+                strongNom.textContent = `${emp.prenom || ''} ${emp.nom || ''}`.trim();
+                tdNom.appendChild(strongNom);
+
+                const tdEmail = document.createElement('td');
+                tdEmail.textContent = emp.email || '';
+
+                const tdRole = document.createElement('td');
+                const spanRole = document.createElement('span');
+                spanRole.className = 'user-badge';
+                spanRole.style.fontSize = '11px';
+                spanRole.style.padding = '3px 10px';
+                spanRole.textContent = 'EMPLOYÉ';
+                tdRole.appendChild(spanRole);
+
+                const tdStatut = document.createElement('td');
+                const spanStatut = document.createElement('span');
+                spanStatut.className = `avis-badge ${actif ? 'publie' : 'desactive'}`;
+                spanStatut.textContent = actif ? 'Actif' : 'Désactivé (départ)';
+                tdStatut.appendChild(spanStatut);
+
+                const tdActions = document.createElement('td');
+                const btnToggle = document.createElement('button');
+                btnToggle.type = 'button';
+                btnToggle.className = actif
+                    ? 'btn-avis-reject btn-toggle-emp'
+                    : 'btn-avis-approve btn-toggle-emp';
+                btnToggle.textContent = actif ? 'Désactiver le compte' : 'Réactiver le compte';
+
+                btnToggle.addEventListener('click', async () => {
+                    const cibleActif = !actif;
+                    const msg = cibleActif
                         ? 'Réactiver ce compte employé ?'
                         : 'Rendre ce compte employé inutilisable (départ de l’entreprise) ?';
                     if (!confirm(msg)) return;
 
                     try {
-                        const r = await fetch(`/api/admin/employes/${id}/statut`, {
+                        const r = await fetch(`/api/admin/employes/${emp.id}/statut`, {
                             method: 'PUT',
                             headers: {
                                 'Content-Type': 'application/json',
                                 ...(token ? { 'Authorization': `Bearer ${token}` } : {})
                             },
-                            body: JSON.stringify({ est_actif: actif })
+                            body: JSON.stringify({ est_actif: cibleActif })
                         });
                         const d = await r.json();
                         if (r.ok && d.statut === 'succes') {
@@ -323,9 +373,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         alert('Erreur réseau.');
                     }
                 });
+
+                tdActions.appendChild(btnToggle);
+                tr.append(tdNom, tdEmail, tdRole, tdStatut, tdActions);
+                fragment.appendChild(tr);
             });
+
+            tbody.replaceChildren(fragment);
         } catch (err) {
-            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--color-primary);">Erreur de chargement des employés.</td></tr>';
+            afficherLigneMessageTable(tbody, 5, 'Erreur de chargement des employés.', true);
         }
     }
 
@@ -340,22 +396,30 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => res.json())
             .then(res => {
                 if (res.statut === 'succes' && res.donnees && res.donnees.length > 0) {
-                    statsContainer.innerHTML = '';
+                    const fragment = document.createDocumentFragment();
                     res.donnees.forEach(stat => {
                         const card = document.createElement('div');
                         card.className = 'stat-card-box';
-                        card.innerHTML = `
-                            <h4>${escapeHtml(stat.titre || 'Menu')}</h4>
-                            <div class="stat-card-number">${stat.nb_vues || 0} <span>vues</span></div>
-                        `;
-                        statsContainer.appendChild(card);
+
+                        const h4 = document.createElement('h4');
+                        h4.textContent = stat.titre || 'Menu';
+
+                        const numDiv = document.createElement('div');
+                        numDiv.className = 'stat-card-number';
+                        const spanVues = document.createElement('span');
+                        spanVues.textContent = 'vues';
+                        numDiv.append(document.createTextNode(`${stat.nb_vues || 0} `), spanVues);
+
+                        card.append(h4, numDiv);
+                        fragment.appendChild(card);
                     });
+                    statsContainer.replaceChildren(fragment);
                 } else {
-                    statsContainer.innerHTML = '<p style="color: var(--color-text-muted);">Aucune donnée de consultation enregistrée.</p>';
+                    afficherMessageParagraphe(statsContainer, 'Aucune donnée de consultation enregistrée.');
                 }
             })
             .catch(() => {
-                statsContainer.innerHTML = '<p style="color: var(--color-text-muted);">Indicateurs NoSQL temporairement indisponibles.</p>';
+                afficherMessageParagraphe(statsContainer, 'Indicateurs NoSQL temporairement indisponibles.');
             });
     }
 
@@ -423,12 +487,25 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderSelecteurAllergenes() {
         const container = document.getElementById('plat-allergenes-list');
         if (!container) return;
-        container.innerHTML = referentielAllergenes.map(a => `
-            <label class="plat-check-item">
-                <input type="checkbox" name="plat_allergenes" value="${a.id}">
-                <span>${escapeHtml(a.nom)}</span>
-            </label>
-        `).join('');
+
+        const fragment = document.createDocumentFragment();
+        referentielAllergenes.forEach(a => {
+            const label = document.createElement('label');
+            label.className = 'plat-check-item';
+
+            const input = document.createElement('input');
+            input.type = 'checkbox';
+            input.name = 'plat_allergenes';
+            input.value = String(a.id);
+
+            const span = document.createElement('span');
+            span.textContent = a.nom || '';
+
+            label.append(input, span);
+            fragment.appendChild(label);
+        });
+
+        container.replaceChildren(fragment);
     }
 
     function renderSelecteurPlats(selectedIds = []) {
@@ -442,29 +519,52 @@ document.addEventListener('DOMContentLoaded', () => {
             { key: 'dessert', label: 'Desserts' }
         ];
 
-        container.innerHTML = categories.map(cat => {
-            const items = referentielPlats.filter(p => p.categorie === cat.key);
-            const listHtml = items.length > 0
-                ? items.map(p => {
-                    const allergenesTxt = (p.allergenes && p.allergenes.length > 0)
-                        ? ` <small style="color:#92400E;">(${p.allergenes.map(a => escapeHtml(a.nom)).join(', ')})</small>`
-                        : '';
-                    return `
-                        <label class="plat-check-item">
-                            <input type="checkbox" name="menu_plats" value="${p.id}" ${selectedSet.has(Number(p.id)) ? 'checked' : ''}>
-                            <span>${escapeHtml(p.nom)}${allergenesTxt}</span>
-                        </label>
-                    `;
-                }).join('')
-                : '<p style="font-size:12px; color:var(--color-text-muted);">Aucun plat dans cette catégorie.</p>';
+        const fragment = document.createDocumentFragment();
+        categories.forEach(cat => {
+            const box = document.createElement('div');
+            box.className = 'plats-category-box';
 
-            return `
-                <div class="plats-category-box">
-                    <h5>${cat.label}</h5>
-                    ${listHtml}
-                </div>
-            `;
-        }).join('');
+            const h5 = document.createElement('h5');
+            h5.textContent = cat.label;
+            box.appendChild(h5);
+
+            const items = referentielPlats.filter(p => p.categorie === cat.key);
+            if (items.length === 0) {
+                const pEmpty = document.createElement('p');
+                pEmpty.style.fontSize = '12px';
+                pEmpty.style.color = 'var(--color-text-muted)';
+                pEmpty.textContent = 'Aucun plat dans cette catégorie.';
+                box.appendChild(pEmpty);
+            } else {
+                items.forEach(p => {
+                    const label = document.createElement('label');
+                    label.className = 'plat-check-item';
+
+                    const input = document.createElement('input');
+                    input.type = 'checkbox';
+                    input.name = 'menu_plats';
+                    input.value = String(p.id);
+                    input.checked = selectedSet.has(Number(p.id));
+
+                    const span = document.createElement('span');
+                    span.textContent = p.nom || '';
+
+                    if (p.allergenes && p.allergenes.length > 0) {
+                        const small = document.createElement('small');
+                        small.style.color = '#92400E';
+                        small.textContent = ` (${p.allergenes.map(a => a.nom).join(', ')})`;
+                        span.appendChild(small);
+                    }
+
+                    label.append(input, span);
+                    box.appendChild(label);
+                });
+            }
+
+            fragment.appendChild(box);
+        });
+
+        container.replaceChildren(fragment);
     }
 
     if (platForm) {
@@ -593,31 +693,40 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => {
                 menusCache = res.donnees || [];
 
-                // Alimentation du filtre Menu du calculateur CA (Admin)
                 const caSelect = document.getElementById('ca-filter-menu');
                 if (caSelect) {
                     const currentVal = caSelect.value;
-                    caSelect.innerHTML = '<option value="">Tous les menus</option>' +
-                        menusCache.map(m => `<option value="${m.id}">${escapeHtml(m.titre)}</option>`).join('');
+                    const optDefault = document.createElement('option');
+                    optDefault.value = '';
+                    optDefault.textContent = 'Tous les menus';
+
+                    const options = [optDefault];
+                    menusCache.forEach(m => {
+                        const opt = document.createElement('option');
+                        opt.value = String(m.id);
+                        opt.textContent = m.titre || '';
+                        options.push(opt);
+                    });
+
+                    caSelect.replaceChildren(...options);
                     caSelect.value = currentVal;
                 }
 
                 if (res.statut === 'succes' && menusCache.length > 0) {
                     renderMenus(menusCache);
                 } else {
-                    menusTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucun menu actif dans le catalogue.</td></tr>';
+                    afficherLigneMessageTable(menusTableBody, 6, 'Aucun menu actif dans le catalogue.');
                 }
             })
             .catch(() => {
-                menusTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des menus.</td></tr>';
+                afficherLigneMessageTable(menusTableBody, 6, 'Erreur de chargement des menus.', true);
             });
     }
 
     function renderMenus(menus) {
-        menusTableBody.innerHTML = '';
-
         const labelsTheme = { noel: 'Noël', paques: 'Pâques', classique: 'Classique', evenement: 'Événement' };
         const labelsRegime = { classique: 'Classique', vegetarien: 'Végétarien', vegan: 'Vegan' };
+        const fragment = document.createDocumentFragment();
 
         menus.forEach(menu => {
             const tr = document.createElement('tr');
@@ -625,58 +734,96 @@ document.addEventListener('DOMContentLoaded', () => {
             const convivesMin = parseInt(menu.convives_min || 4, 10);
             const totalMin = (prixUnit * convivesMin).toFixed(2).replace('.', ',');
             const prixUnitStr = prixUnit.toFixed(2).replace('.', ',');
-
-            const platsResume = (menu.plats && menu.plats.length > 0)
-                ? menu.plats.map(p => escapeHtml(p.nom)).join(' • ')
-                : '<em style="color:var(--color-text-muted);">Aucun plat associé</em>';
-
             const stock = parseInt(menu.stock_disponible || 0, 10);
             const stockBadgeClass = stock > 3 ? 'publie' : 'en-attente';
 
-            tr.innerHTML = `
-                <td>
-                    <img src="${escapeHtml(menu.image_url)}" alt="${escapeHtml(menu.titre)}" class="menu-thumb" onerror="this.style.display='none'">
-                </td>
-                <td style="max-width: 340px;">
-                    <div><strong>${escapeHtml(menu.titre)}</strong></div>
-                    <div style="font-size: 12px; color: var(--color-text-muted); margin-top: 2px;">${platsResume}</div>
-                </td>
-                <td>
-                    <span class="user-badge" style="font-size: 11px; padding: 3px 10px;">
-                        ${escapeHtml(labelsTheme[menu.theme] || menu.theme)} • ${escapeHtml(labelsRegime[menu.regime] || menu.regime)}
-                    </span>
-                </td>
-                <td>
-                    <div><strong>${prixUnitStr} €</strong> / pers.</div>
-                    <small style="color: var(--color-text-muted);">Min. ${convivesMin} pers. (${totalMin} €)</small>
-                </td>
-                <td>
-                    <div><span class="avis-badge ${stockBadgeClass}">${stock} dispo.</span></div>
-                    <small style="color: var(--color-text-muted);">Délai ${menu.delai_min_jours}j • ${escapeHtml(menu.conditions_stockage)}</small>
-                </td>
-                <td style="white-space: nowrap;">
-                    <button type="button" class="btn-avis-approve btn-menu-edit" data-id="${menu.id}">✎ Modifier</button>
-                    <button type="button" class="btn-avis-reject btn-menu-delete" data-id="${menu.id}">✕ Supprimer</button>
-                </td>
-            `;
-            menusTableBody.appendChild(tr);
-        });
-
-        document.querySelectorAll('.btn-menu-edit').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const id = Number(e.target.getAttribute('data-id'));
-                const menu = menusCache.find(m => Number(m.id) === id);
-                if (menu) ouvrirEditionMenu(menu);
+            // Colonne 1 : Image
+            const tdImg = document.createElement('td');
+            const img = document.createElement('img');
+            img.src = menu.image_url || '';
+            img.alt = menu.titre || '';
+            img.className = 'menu-thumb';
+            img.addEventListener('error', () => {
+                img.style.display = 'none';
             });
-        });
+            tdImg.appendChild(img);
 
-        document.querySelectorAll('.btn-menu-delete').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const id = e.target.getAttribute('data-id');
+            // Colonne 2 : Titre & Plats
+            const tdTitre = document.createElement('td');
+            tdTitre.style.maxWidth = '340px';
+
+            const divTitre = document.createElement('div');
+            const strongTitre = document.createElement('strong');
+            strongTitre.textContent = menu.titre || '';
+            divTitre.appendChild(strongTitre);
+
+            const divPlats = document.createElement('div');
+            divPlats.style.fontSize = '12px';
+            divPlats.style.color = 'var(--color-text-muted)';
+            divPlats.style.marginTop = '2px';
+            if (menu.plats && menu.plats.length > 0) {
+                divPlats.textContent = menu.plats.map(p => p.nom).join(' • ');
+            } else {
+                const emEmpty = document.createElement('em');
+                emEmpty.style.color = 'var(--color-text-muted)';
+                emEmpty.textContent = 'Aucun plat associé';
+                divPlats.appendChild(emEmpty);
+            }
+            tdTitre.append(divTitre, divPlats);
+
+            // Colonne 3 : Thème & Régime
+            const tdBadge = document.createElement('td');
+            const spanBadge = document.createElement('span');
+            spanBadge.className = 'user-badge';
+            spanBadge.style.fontSize = '11px';
+            spanBadge.style.padding = '3px 10px';
+            spanBadge.textContent = `${labelsTheme[menu.theme] || menu.theme} • ${labelsRegime[menu.regime] || menu.regime}`;
+            tdBadge.appendChild(spanBadge);
+
+            // Colonne 4 : Tarification
+            const tdPrix = document.createElement('td');
+            const divPrix = document.createElement('div');
+            const strongPrix = document.createElement('strong');
+            strongPrix.textContent = `${prixUnitStr} €`;
+            divPrix.append(strongPrix, document.createTextNode(' / pers.'));
+
+            const smallMin = document.createElement('small');
+            smallMin.style.color = 'var(--color-text-muted)';
+            smallMin.textContent = `Min. ${convivesMin} pers. (${totalMin} €)`;
+            tdPrix.append(divPrix, smallMin);
+
+            // Colonne 5 : Stock & Délai
+            const tdStock = document.createElement('td');
+            const divStock = document.createElement('div');
+            const spanStock = document.createElement('span');
+            spanStock.className = `avis-badge ${stockBadgeClass}`;
+            spanStock.textContent = `${stock} dispo.`;
+            divStock.appendChild(spanStock);
+
+            const smallDelai = document.createElement('small');
+            smallDelai.style.color = 'var(--color-text-muted)';
+            smallDelai.textContent = `Délai ${menu.delai_min_jours}j • ${menu.conditions_stockage || ''}`;
+            tdStock.append(divStock, smallDelai);
+
+            // Colonne 6 : Actions
+            const tdActions = document.createElement('td');
+            tdActions.style.whiteSpace = 'nowrap';
+
+            const btnEdit = document.createElement('button');
+            btnEdit.type = 'button';
+            btnEdit.className = 'btn-avis-approve btn-menu-edit';
+            btnEdit.textContent = '✎ Modifier';
+            btnEdit.addEventListener('click', () => ouvrirEditionMenu(menu));
+
+            const btnDelete = document.createElement('button');
+            btnDelete.type = 'button';
+            btnDelete.className = 'btn-avis-reject btn-menu-delete';
+            btnDelete.style.marginLeft = '6px';
+            btnDelete.textContent = '✕ Supprimer';
+            btnDelete.addEventListener('click', async () => {
                 if (!confirm('Retirer ce menu du catalogue ?')) return;
-
                 try {
-                    const res = await fetch(`/api/admin/menus/${id}`, {
+                    const res = await fetch(`/api/admin/menus/${menu.id}`, {
                         method: 'DELETE',
                         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                     });
@@ -690,7 +837,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert('Erreur réseau lors de la suppression.');
                 }
             });
+
+            tdActions.append(btnEdit, btnDelete);
+            tr.append(tdImg, tdTitre, tdBadge, tdPrix, tdStock, tdActions);
+            fragment.appendChild(tr);
         });
+
+        menusTableBody.replaceChildren(fragment);
     }
 
     // =========================================================================
@@ -726,11 +879,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     appliquerFiltresCommandes();
                 } else {
                     commandesCache = [];
-                    tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucune commande trouvée.</td></tr>';
+                    afficherLigneMessageTable(tableBody, 7, 'Aucune commande trouvée.');
                 }
             })
             .catch(() => {
-                tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des commandes.</td></tr>';
+                afficherLigneMessageTable(tableBody, 7, 'Erreur de chargement des commandes.', true);
             });
     }
 
@@ -759,14 +912,25 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         if (filtrees.length === 0) {
-            tableBody.innerHTML = '<tr><td colspan="7" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucune commande ne correspond à ces critères.</td></tr>';
+            afficherLigneMessageTable(tableBody, 7, 'Aucune commande ne correspond à ces critères.');
             return;
         }
         renderCommandes(filtrees);
     }
 
     function renderCommandes(commandes) {
-        tableBody.innerHTML = '';
+        const statutsDisponibles = [
+            { value: 'en_attente', label: 'En attente' },
+            { value: 'validee', label: 'Acceptée' },
+            { value: 'en_preparation', label: 'En préparation' },
+            { value: 'en_cours_livraison', label: 'En cours de livraison' },
+            { value: 'livree', label: 'Livrée' },
+            { value: 'attente_retour_materiel', label: 'En attente du retour de matériel' },
+            { value: 'terminee', label: 'Terminée' },
+            { value: 'annulee', label: 'Annulée' }
+        ];
+
+        const fragment = document.createDocumentFragment();
 
         commandes.forEach(cmd => {
             const tr = document.createElement('tr');
@@ -795,7 +959,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .split(' ')
                 .map(mot => mot.charAt(0).toUpperCase() + mot.slice(1))
                 .join(' ');
-            
+
             const distanceKm = Math.round(parseFloat(cmd.distance_km || cmd.distance || 0));
             const totalTtc = parseFloat(cmd.total_ttc || 0).toFixed(2).replace('.', ',');
 
@@ -807,57 +971,98 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const st = String(cmd.statut || 'en_attente').toLowerCase().trim();
-            const motifInfo = (st === 'annulee' && cmd.motif_annulation)
-                ? `<div style="font-size: 11px; color: #991B1B; margin-top: 4px;">Contact : ${escapeHtml(cmd.mode_contact_annulation || '-')} • ${escapeHtml(cmd.motif_annulation)}</div>`
-                : '';
 
-            tr.innerHTML = `
-                <td><strong>${escapeHtml(numeroCommande)}</strong></td>
-                <td>
-                    <div>${escapeHtml(prenom)} ${escapeHtml(nom)}</div>
-                    <small style="color: var(--color-text-muted);">${escapeHtml(email)}</small>
-                    ${tel ? `<br><small style="color: var(--color-text-muted);">📞 ${escapeHtml(tel)}</small>` : ''}
-                </td>
-                <td>${dateLivraison}</td>
-                <td>${escapeHtml(ville)} <small>(${distanceKm} km)</small></td>
-                <td>${escapeHtml(articleStr)}${motifInfo}</td>
-                <td><strong>${totalTtc} €</strong></td>
-                <td>
-                    <select class="status-select" data-id="${idCommande}" data-prev="${escapeHtml(st)}" style="padding: 5px 8px; border-radius: 4px; font-weight: 600; font-size: 12px;">
-                        <option value="en_attente" ${st === 'en_attente' ? 'selected' : ''}>En attente</option>
-                        <option value="validee" ${st === 'validee' ? 'selected' : ''}>Acceptée</option>
-                        <option value="en_preparation" ${st === 'en_preparation' ? 'selected' : ''}>En préparation</option>
-                        <option value="en_cours_livraison" ${st === 'en_cours_livraison' ? 'selected' : ''}>En cours de livraison</option>
-                        <option value="livree" ${st === 'livree' ? 'selected' : ''}>Livrée</option>
-                        <option value="attente_retour_materiel" ${st === 'attente_retour_materiel' ? 'selected' : ''}>En attente du retour de matériel</option>
-                        <option value="terminee" ${st === 'terminee' ? 'selected' : ''}>Terminée</option>
-                        <option value="annulee" ${st === 'annulee' ? 'selected' : ''}>Annulée</option>
-                    </select>
-                </td>
-            `;
+            // Colonne 1 : Numéro
+            const tdNum = document.createElement('td');
+            const strongNum = document.createElement('strong');
+            strongNum.textContent = numeroCommande;
+            tdNum.appendChild(strongNum);
 
-            tableBody.appendChild(tr);
-        });
+            // Colonne 2 : Client
+            const tdClient = document.createElement('td');
+            const divClient = document.createElement('div');
+            divClient.textContent = `${prenom} ${nom}`.trim();
+            const smallEmail = document.createElement('small');
+            smallEmail.style.color = 'var(--color-text-muted)';
+            smallEmail.textContent = email;
+            tdClient.append(divClient, smallEmail);
 
-        document.querySelectorAll('.status-select').forEach(select => {
+            if (tel) {
+                const smallTel = document.createElement('small');
+                smallTel.style.color = 'var(--color-text-muted)';
+                smallTel.textContent = `📞 ${tel}`;
+                tdClient.append(document.createElement('br'), smallTel);
+            }
+
+            // Colonne 3 : Date
+            const tdDate = document.createElement('td');
+            tdDate.textContent = dateLivraison;
+
+            // Colonne 4 : Ville & Distance
+            const tdLieu = document.createElement('td');
+            const smallKm = document.createElement('small');
+            smallKm.textContent = `(${distanceKm} km)`;
+            tdLieu.append(document.createTextNode(`${ville} `), smallKm);
+
+            // Colonne 5 : Articles & Motif annulation
+            const tdArticles = document.createElement('td');
+            tdArticles.appendChild(document.createTextNode(articleStr));
+            if (st === 'annulee' && cmd.motif_annulation) {
+                const divMotif = document.createElement('div');
+                divMotif.style.fontSize = '11px';
+                divMotif.style.color = '#991B1B';
+                divMotif.style.marginTop = '4px';
+                divMotif.textContent = `Contact : ${cmd.mode_contact_annulation || '-'} • ${cmd.motif_annulation}`;
+                tdArticles.appendChild(divMotif);
+            }
+
+            // Colonne 6 : Total
+            const tdTotal = document.createElement('td');
+            const strongTotal = document.createElement('strong');
+            strongTotal.textContent = `${totalTtc} €`;
+            tdTotal.appendChild(strongTotal);
+
+            // Colonne 7 : Sélecteur statut
+            const tdStatut = document.createElement('td');
+            const select = document.createElement('select');
+            select.className = 'status-select';
+            select.dataset.prev = st;
+            select.style.padding = '5px 8px';
+            select.style.borderRadius = '4px';
+            select.style.fontWeight = '600';
+            select.style.fontSize = '12px';
+
+            statutsDisponibles.forEach(optInfo => {
+                const opt = document.createElement('option');
+                opt.value = optInfo.value;
+                opt.textContent = optInfo.label;
+                if (st === optInfo.value) opt.selected = true;
+                select.appendChild(opt);
+            });
+
             select.addEventListener('change', async (e) => {
-                const cmdId = e.target.getAttribute('data-id');
                 const nouveauStatut = e.target.value;
-                const ancienStatut = e.target.getAttribute('data-prev') || 'en_attente';
+                const ancienStatut = e.target.dataset.prev || 'en_attente';
 
                 if (nouveauStatut === 'annulee') {
                     selectEnCoursAnnulation = e.target;
                     statutPrecedentAnnulation = ancienStatut;
-                    document.getElementById('cancel-cmd-id').value = cmdId;
+                    document.getElementById('cancel-cmd-id').value = idCommande;
                     document.getElementById('cancel-mode-contact').value = '';
                     document.getElementById('cancel-motif').value = '';
                     document.getElementById('modal-staff-cancel').style.display = 'flex';
                     return;
                 }
 
-                await envoyerMiseAJourStatut(cmdId, nouveauStatut, e.target);
+                await envoyerMiseAJourStatut(idCommande, nouveauStatut, e.target);
             });
+
+            tdStatut.appendChild(select);
+            tr.append(tdNum, tdClient, tdDate, tdLieu, tdArticles, tdTotal, tdStatut);
+            fragment.appendChild(tr);
         });
+
+        tableBody.replaceChildren(fragment);
     }
 
     function initialiserModalAnnulationStaff() {
@@ -949,18 +1154,32 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(res => {
                 const liste = res.horaires || [];
                 if (res.statut === 'succes' && liste.length > 0) {
-                    container.innerHTML = liste.map(h => `
-                        <div class="menu-form-group">
-                            <label for="horaire-${h.id}">${escapeHtml(h.jour_semaine)}</label>
-                            <input type="text" id="horaire-${h.id}" data-horaire-id="${h.id}" value="${escapeHtml(h.heures_ouverture)}" required>
-                        </div>
-                    `).join('');
+                    const fragment = document.createDocumentFragment();
+                    liste.forEach(h => {
+                        const group = document.createElement('div');
+                        group.className = 'menu-form-group';
+
+                        const label = document.createElement('label');
+                        label.htmlFor = `horaire-${h.id}`;
+                        label.textContent = h.jour_semaine || '';
+
+                        const input = document.createElement('input');
+                        input.type = 'text';
+                        input.id = `horaire-${h.id}`;
+                        input.setAttribute('data-horaire-id', String(h.id));
+                        input.value = h.heures_ouverture || '';
+                        input.required = true;
+
+                        group.append(label, input);
+                        fragment.appendChild(group);
+                    });
+                    container.replaceChildren(fragment);
                 } else {
-                    container.innerHTML = '<p style="font-size:13px; color:var(--color-text-muted);">Aucun horaire configuré.</p>';
+                    afficherMessageParagraphe(container, 'Aucun horaire configuré.');
                 }
             })
             .catch(() => {
-                container.innerHTML = '<p style="font-size:13px; color:var(--color-primary);">Erreur lors du chargement des horaires.</p>';
+                afficherMessageParagraphe(container, 'Erreur lors du chargement des horaires.', true);
             });
     }
 
@@ -1012,16 +1231,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.statut === 'succes' && listeAvis.length > 0) {
                     renderAvis(listeAvis);
                 } else {
-                    avisTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucun avis client enregistré pour le moment.</td></tr>';
+                    afficherLigneMessageTable(avisTableBody, 6, 'Aucun avis client enregistré pour le moment.');
                 }
             })
             .catch(() => {
-                avisTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des avis.</td></tr>';
+                afficherLigneMessageTable(avisTableBody, 6, 'Erreur de chargement des avis.', true);
             });
     }
 
     function renderAvis(listeAvis) {
-        avisTableBody.innerHTML = '';
+        const fragment = document.createDocumentFragment();
 
         listeAvis.forEach(avis => {
             const tr = document.createElement('tr');
@@ -1033,60 +1252,72 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const auteur = `${avis.prenom || avis.client_prenom || 'Client'} ${avis.nom || avis.client_nom || ''}`.trim();
-            const note = Math.min(5, Math.max(1, parseInt(avis.note) || 5));
+            const note = Math.min(5, Math.max(1, parseInt(avis.note, 10) || 5));
             const etoiles = '★'.repeat(note) + '☆'.repeat(5 - note);
             const estValide = avis.est_valide == 1 || avis.est_valide === true || String(avis.statut || '').toLowerCase().includes('valid');
 
-            tr.innerHTML = `
-                <td>${dateAffiche}</td>
-                <td><strong>${escapeHtml(auteur)}</strong></td>
-                <td style="color: #B8860B; font-size: 14px; letter-spacing: 1px;">${etoiles}</td>
-                <td style="max-width: 380px;">« ${escapeHtml(avis.commentaire)} »</td>
-                <td>
-                    <span class="avis-badge ${estValide ? 'publie' : 'en-attente'}">
-                        ${estValide ? 'Publié' : 'En attente'}
-                    </span>
-                </td>
-                <td>
-                    ${!estValide ? `<button type="button" class="btn-avis-approve" data-id="${avis.id}">✓ Valider</button>` : ''}
-                    <button type="button" class="btn-avis-reject" data-id="${avis.id}">✕ Refuser</button>
-                </td>
-            `;
+            const tdDate = document.createElement('td');
+            tdDate.textContent = dateAffiche;
 
-            avisTableBody.appendChild(tr);
-        });
+            const tdAuteur = document.createElement('td');
+            const strongAuteur = document.createElement('strong');
+            strongAuteur.textContent = auteur;
+            tdAuteur.appendChild(strongAuteur);
 
-        document.querySelectorAll('.btn-avis-approve').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const avisId = e.target.getAttribute('data-id');
-                try {
-                    const res = await fetch(`/api/admin/avis/${avisId}/valider`, {
-                        method: 'PUT',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                        },
-                        body: JSON.stringify({ est_valide: 1, statut: 'valide' })
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.statut === 'succes') {
-                        chargerAvis();
-                    } else {
-                        alert('Erreur : ' + (data.message || 'Impossible de valider cet avis.'));
+            const tdNote = document.createElement('td');
+            tdNote.style.color = '#B8860B';
+            tdNote.style.fontSize = '14px';
+            tdNote.style.letterSpacing = '1px';
+            tdNote.textContent = etoiles;
+
+            const tdCommentaire = document.createElement('td');
+            tdCommentaire.style.maxWidth = '380px';
+            tdCommentaire.textContent = `« ${avis.commentaire || ''} »`;
+
+            const tdStatut = document.createElement('td');
+            const spanStatut = document.createElement('span');
+            spanStatut.className = `avis-badge ${estValide ? 'publie' : 'en-attente'}`;
+            spanStatut.textContent = estValide ? 'Publié' : 'En attente';
+            tdStatut.appendChild(spanStatut);
+
+            const tdActions = document.createElement('td');
+            if (!estValide) {
+                const btnApprove = document.createElement('button');
+                btnApprove.type = 'button';
+                btnApprove.className = 'btn-avis-approve';
+                btnApprove.style.marginRight = '6px';
+                btnApprove.textContent = '✓ Valider';
+                btnApprove.addEventListener('click', async () => {
+                    try {
+                        const res = await fetch(`/api/admin/avis/${avis.id}/valider`, {
+                            method: 'PUT',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                            },
+                            body: JSON.stringify({ est_valide: 1, statut: 'valide' })
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.statut === 'succes') {
+                            chargerAvis();
+                        } else {
+                            alert('Erreur : ' + (data.message || 'Impossible de valider cet avis.'));
+                        }
+                    } catch (err) {
+                        alert('Erreur réseau lors de la validation.');
                     }
-                } catch (err) {
-                    alert('Erreur réseau lors de la validation.');
-                }
-            });
-        });
+                });
+                tdActions.appendChild(btnApprove);
+            }
 
-        document.querySelectorAll('.btn-avis-reject').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const avisId = e.target.getAttribute('data-id');
+            const btnReject = document.createElement('button');
+            btnReject.type = 'button';
+            btnReject.className = 'btn-avis-reject';
+            btnReject.textContent = '✕ Refuser';
+            btnReject.addEventListener('click', async () => {
                 if (!confirm('Refuser et supprimer définitivement cet avis ?')) return;
-
                 try {
-                    const res = await fetch(`/api/admin/avis/${avisId}`, {
+                    const res = await fetch(`/api/admin/avis/${avis.id}`, {
                         method: 'DELETE',
                         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                     });
@@ -1100,7 +1331,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert('Erreur réseau lors de la suppression.');
                 }
             });
+
+            tdActions.appendChild(btnReject);
+            tr.append(tdDate, tdAuteur, tdNote, tdCommentaire, tdStatut, tdActions);
+            fragment.appendChild(tr);
         });
+
+        avisTableBody.replaceChildren(fragment);
     }
 
     // =========================================================================
@@ -1120,16 +1357,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.statut === 'succes' && listeContacts.length > 0) {
                     renderContacts(listeContacts);
                 } else {
-                    contactsTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--color-text-muted);">Aucun message ou demande de devis reçu pour le moment.</td></tr>';
+                    afficherLigneMessageTable(contactsTableBody, 6, 'Aucun message ou demande de devis reçu pour le moment.');
                 }
             })
             .catch(() => {
-                contactsTableBody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--color-primary); padding: 20px;">Erreur de chargement des messages.</td></tr>';
+                afficherLigneMessageTable(contactsTableBody, 6, 'Erreur de chargement des messages.', true);
             });
     }
 
     function renderContacts(listeContacts) {
-        contactsTableBody.innerHTML = '';
+        const fragment = document.createDocumentFragment();
 
         listeContacts.forEach(msg => {
             const tr = document.createElement('tr');
@@ -1144,56 +1381,88 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const estTraite = String(msg.statut || '').toLowerCase() === 'traite';
 
-            tr.innerHTML = `
-                <td style="white-space: nowrap;">${dateAffiche}</td>
-                <td>
-                    <div><strong>${escapeHtml(msg.nom_complet)}</strong></div>
-                    <div style="font-size: 12px;"><a href="mailto:${escapeHtml(msg.email)}" style="color: var(--color-primary);">${escapeHtml(msg.email)}</a></div>
-                    ${msg.telephone ? `<small style="color: var(--color-text-muted);">${escapeHtml(msg.telephone)}</small>` : ''}
-                </td>
-                <td><span style="font-size: 12px; font-weight: 600;">${escapeHtml(msg.type_evenement || 'Demande')}</span></td>
-                <td style="max-width: 360px; white-space: pre-line;">${escapeHtml(msg.message)}</td>
-                <td>
-                    <span class="avis-badge ${estTraite ? 'publie' : 'en-attente'}">
-                        ${estTraite ? 'Traité' : 'Nouveau'}
-                    </span>
-                </td>
-                <td style="white-space: nowrap;">
-                    ${!estTraite ? `<button type="button" class="btn-avis-approve btn-contact-treat" data-id="${msg.id}">✓ Traité</button>` : ''}
-                    <button type="button" class="btn-avis-reject btn-contact-delete" data-id="${msg.id}">✕ Supprimer</button>
-                </td>
-            `;
+            const tdDate = document.createElement('td');
+            tdDate.style.whiteSpace = 'nowrap';
+            tdDate.textContent = dateAffiche;
 
-            contactsTableBody.appendChild(tr);
-        });
+            const tdExpediteur = document.createElement('td');
+            const divNom = document.createElement('div');
+            const strongNom = document.createElement('strong');
+            strongNom.textContent = msg.nom_complet || '';
+            divNom.appendChild(strongNom);
 
-        document.querySelectorAll('.btn-contact-treat').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const contactId = e.target.getAttribute('data-id');
-                try {
-                    const res = await fetch(`/api/admin/contacts/${contactId}/traiter`, {
-                        method: 'PUT',
-                        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-                    });
-                    const data = await res.json();
-                    if (res.ok && data.statut === 'succes') {
-                        chargerContacts();
-                    } else {
-                        alert('Erreur : ' + (data.message || 'Impossible de mettre à jour ce message.'));
+            const divEmail = document.createElement('div');
+            divEmail.style.fontSize = '12px';
+            const linkEmail = document.createElement('a');
+            const cleanEmail = String(msg.email || '').replace(/[\r\n]/g, '');
+            linkEmail.href = `mailto:${cleanEmail}`;
+            linkEmail.style.color = 'var(--color-primary)';
+            linkEmail.textContent = cleanEmail;
+            divEmail.appendChild(linkEmail);
+
+            tdExpediteur.append(divNom, divEmail);
+
+            if (msg.telephone) {
+                const smallTel = document.createElement('small');
+                smallTel.style.color = 'var(--color-text-muted)';
+                smallTel.textContent = msg.telephone;
+                tdExpediteur.appendChild(smallTel);
+            }
+
+            const tdSujet = document.createElement('td');
+            const spanSujet = document.createElement('span');
+            spanSujet.style.fontSize = '12px';
+            spanSujet.style.fontWeight = '600';
+            spanSujet.textContent = msg.type_evenement || 'Demande';
+            tdSujet.appendChild(spanSujet);
+
+            const tdMessage = document.createElement('td');
+            tdMessage.style.maxWidth = '360px';
+            tdMessage.style.whiteSpace = 'pre-line';
+            tdMessage.textContent = msg.message || '';
+
+            const tdStatut = document.createElement('td');
+            const spanStatut = document.createElement('span');
+            spanStatut.className = `avis-badge ${estTraite ? 'publie' : 'en-attente'}`;
+            spanStatut.textContent = estTraite ? 'Traité' : 'Nouveau';
+            tdStatut.appendChild(spanStatut);
+
+            const tdActions = document.createElement('td');
+            tdActions.style.whiteSpace = 'nowrap';
+
+            if (!estTraite) {
+                const btnTreat = document.createElement('button');
+                btnTreat.type = 'button';
+                btnTreat.className = 'btn-avis-approve';
+                btnTreat.style.marginRight = '6px';
+                btnTreat.textContent = '✓ Traité';
+                btnTreat.addEventListener('click', async () => {
+                    try {
+                        const res = await fetch(`/api/admin/contacts/${msg.id}/traiter`, {
+                            method: 'PUT',
+                            headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+                        });
+                        const data = await res.json();
+                        if (res.ok && data.statut === 'succes') {
+                            chargerContacts();
+                        } else {
+                            alert('Erreur : ' + (data.message || 'Impossible de mettre à jour ce message.'));
+                        }
+                    } catch (err) {
+                        alert('Erreur réseau lors de la mise à jour.');
                     }
-                } catch (err) {
-                    alert('Erreur réseau lors de la mise à jour.');
-                }
-            });
-        });
+                });
+                tdActions.appendChild(btnTreat);
+            }
 
-        document.querySelectorAll('.btn-contact-delete').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                const contactId = e.target.getAttribute('data-id');
+            const btnDelete = document.createElement('button');
+            btnDelete.type = 'button';
+            btnDelete.className = 'btn-avis-reject';
+            btnDelete.textContent = '✕ Supprimer';
+            btnDelete.addEventListener('click', async () => {
                 if (!confirm('Supprimer définitivement ce message ?')) return;
-
                 try {
-                    const res = await fetch(`/api/admin/contacts/${contactId}`, {
+                    const res = await fetch(`/api/admin/contacts/${msg.id}`, {
                         method: 'DELETE',
                         headers: token ? { 'Authorization': `Bearer ${token}` } : {}
                     });
@@ -1207,6 +1476,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert('Erreur réseau lors de la suppression.');
                 }
             });
+
+            tdActions.appendChild(btnDelete);
+            tr.append(tdDate, tdExpediteur, tdSujet, tdMessage, tdStatut, tdActions);
+            fragment.appendChild(tr);
         });
+
+        contactsTableBody.replaceChildren(fragment);
     }
 });

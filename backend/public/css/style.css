@@ -5,7 +5,7 @@
     --color-primary: #721B29;       /* Bordeaux Grand Cru */
     --color-secondary: #976D1A;     /* Or Gastronomique */
     --color-accent-hover: #54131E;  /* Bordeaux Foncé */
-    
+
     /* Couleurs Neutres */
     --color-dark-bg: #111827;       /* Anthracite Nuit (Footer) */
     --color-text-title: #1F2937;    /* Gris Anthracite */
@@ -46,6 +46,10 @@
     --transition-smooth: all 0.2s ease;
 }
 
+/* ==========================================================================
+   1. STYLES DE BASE — MOBILE FIRST (< 768px)
+   ========================================================================== */
+
 * {
     box-sizing: border-box;
     margin: 0;
@@ -60,26 +64,26 @@ body {
     font-size: 14px;
 }
 
-/* --- Typographie & Titres --- */
+/* --- Typographie & Titres (Base Mobile) --- */
 h1, h2, h3, .font-serif {
     font-family: var(--font-serif);
     font-weight: 700;
 }
 
 h1 {
-    font-size: 36px;
+    font-size: 28px;
     line-height: 1.25;
     color: var(--color-primary);
 }
 
 h2 {
-    font-size: 30px;
+    font-size: 24px;
     line-height: 1.3;
     color: var(--color-primary);
 }
 
 h3 {
-    font-size: 20px;
+    font-size: 18px;
     line-height: 1.35;
     color: var(--color-text-title);
 }
@@ -95,7 +99,18 @@ h3 {
     margin-bottom: 8px;
 }
 
-/* --- En-tête & Barre de Navigation --- */
+/* --- Structure globale des pages (Mobile First) --- */
+.container-1296 {
+    max-width: 1296px;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+.page-section {
+    padding: 32px 16px;
+}
+
+/* --- En-tête & Barre de Navigation (Mobile First) --- */
 .header-nav {
     background-color: var(--color-bg-card);
     border-bottom: 1px solid var(--color-border);
@@ -107,70 +122,132 @@ h3 {
 .navbar-container {
     max-width: 1296px;
     margin: 0 auto;
-    padding: 16px 24px;
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
     align-items: center;
+    position: relative;
 }
 
 .brand-wrapper {
     display: flex;
     flex-direction: column;
     text-decoration: none;
-    justify-self: start;
 }
 
 .brand-name {
     font-family: var(--font-serif);
-    font-size: 24px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--color-primary);
 }
 
 .brand-tagline {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--color-secondary);
     font-weight: 500;
 }
 
+/* Bouton Hamburger visible par défaut sur Mobile */
+.burger-btn {
+    display: flex;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 6px;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 32px;
+    height: 24px;
+    z-index: 1001;
+}
+
+.burger-btn span {
+    display: block;
+    width: 100%;
+    height: 3px;
+    background-color: var(--color-primary);
+    border-radius: 2px;
+    transition: var(--transition-smooth);
+}
+
+.burger-btn.active span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+}
+
+.burger-btn.active span:nth-child(2) {
+    opacity: 0;
+}
+
+.burger-btn.active span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+}
+
+/* Tiroir de navigation mobile */
 .header-nav nav {
-    justify-self: center;
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    background-color: var(--color-bg-card);
+    border-bottom: 3px solid var(--color-primary);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+    padding: 20px 24px;
+}
+
+.header-nav nav.open {
+    display: block;
 }
 
 .nav-menu {
     display: flex;
-    align-items: center;
-    gap: 32px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    width: 100%;
     list-style: none;
 }
 
 .nav-link {
     text-decoration: none;
     color: var(--color-text-title);
-    font-weight: 500;
-    font-size: 14px;
-    padding-bottom: 4px;
+    font-weight: 600;
+    font-size: 15px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--color-border);
+    display: block;
+    width: 100%;
     position: relative;
     transition: var(--transition-smooth);
 }
 
-.nav-link:hover, .nav-link.active {
+.nav-link:hover,
+.nav-link.active {
     color: var(--color-primary);
 }
 
-.nav-link.active::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 2px;
-    background-color: var(--color-primary);
+/* Boutons d'authentification dans le tiroir mobile */
+.header-nav .btn-connexion,
+.header-nav .navbar-container > div:last-child {
+    display: none !important;
 }
 
-.btn-connexion,
-.navbar-container > div:last-child {
-    justify-self: end;
+.mobile-auth-slot {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--color-border);
+}
+
+.mobile-auth-slot a,
+.mobile-auth-slot button {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+    display: flex;
 }
 
 /* --- Boutons CTA --- */
@@ -217,7 +294,6 @@ h3 {
     font-size: 14px;
     border-radius: var(--radius-sm);
     text-decoration: none;
-    display: inline-flex;
     align-items: center;
     justify-content: center;
     transition: var(--transition-smooth);
@@ -227,24 +303,13 @@ h3 {
     background-color: var(--color-accent-hover);
 }
 
-/* --- Structure globale des pages --- */
-.container-1296 {
-    max-width: 1296px;
-    margin: 0 auto;
-    padding: 0 24px;
-}
-
-.page-section {
-    padding: 64px 24px;
-}
-
-/* --- Hero Section (Accueil) & Images --- */
+/* --- Hero Section (Accueil — Mobile First) --- */
 .hero-layout {
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr;
-    gap: 48px;
+    grid-template-columns: 1fr;
+    gap: 32px;
     align-items: center;
-    padding: 60px 0;
+    padding: 24px 0;
 }
 
 .hero-content h1 {
@@ -262,7 +327,7 @@ h3 {
 .hero-image-container,
 .hero-image-placeholder {
     width: 100%;
-    height: 380px;
+    height: 260px;
     background-color: #E5E7EB;
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
@@ -284,10 +349,10 @@ h3 {
     display: block;
 }
 
-/* --- Section Piliers de Savoir-Faire --- */
+/* --- Section Piliers de Savoir-Faire (Mobile First) --- */
 .section-center-header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 32px;
 }
 
 .section-center-header h2 {
@@ -301,7 +366,7 @@ h3 {
 
 .pillars-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
     gap: 24px;
 }
 
@@ -355,10 +420,10 @@ h3 {
     opacity: 0.95;
 }
 
-/* --- Section Avis Clients --- */
+/* --- Section Avis Clients (Mobile First) --- */
 .testimonials-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: 1fr;
     gap: 24px;
 }
 
@@ -395,12 +460,12 @@ h3 {
     color: var(--color-text-title);
 }
 
-/* --- Grille Catalogue (menus.html) --- */
+/* --- Grille Catalogue (menus.html — Mobile First) --- */
 .catalog-layout {
     display: grid;
-    grid-template-columns: 294px 1fr;
+    grid-template-columns: 1fr;
     gap: 24px;
-    margin-top: 32px;
+    margin-top: 24px;
 }
 
 .filters-sidebar {
@@ -513,10 +578,10 @@ h3 {
     color: var(--color-text-title);
 }
 
-/* --- Grille des Menus (menus.html) --- */
+/* --- Grille des Menus (menus.html — Mobile First) --- */
 .menus-grid-2x2 {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: 1fr;
     gap: 24px;
 }
 
@@ -647,9 +712,10 @@ h3 {
     margin-bottom: 16px;
 }
 
-/* --- Page Commande (commande.html) --- */
+/* --- Page Commande (commande.html — Mobile First) --- */
 .breadcrumb {
     display: flex;
+    flex-wrap: wrap;
     gap: 8px;
     font-size: 12px;
     color: var(--color-text-muted);
@@ -668,10 +734,10 @@ h3 {
 
 .order-layout {
     display: grid;
-    grid-template-columns: 7fr 5fr;
+    grid-template-columns: 1fr;
     gap: 32px;
     align-items: start;
-    margin-bottom: 60px;
+    margin-bottom: 40px;
 }
 
 .order-menu-details {
@@ -682,7 +748,7 @@ h3 {
 
 .order-menu-header-img {
     width: 100%;
-    height: 320px;
+    height: 240px;
     background-color: #E5E7EB;
     border-radius: var(--radius-lg);
     position: relative;
@@ -755,15 +821,14 @@ h3 {
     margin-bottom: 6px;
 }
 
-/* Panneau Configurator Devis Sticky */
+/* Panneau Configurator Devis (flux normal sur Mobile, sticky sur Desktop) */
 .configurator-sticky {
     background-color: var(--color-bg-card);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-card);
-    padding: 28px;
-    position: sticky;
-    top: 90px;
+    padding: 24px;
+    position: static;
 }
 
 .configurator-sticky h3 {
@@ -835,18 +900,18 @@ h3 {
     margin-top: 4px;
 }
 
-/* --- Pied de page (Footer 3 colonnes) --- */
+/* --- Pied de page (Footer — Mobile First 1 colonne) --- */
 .site-footer {
     background-color: var(--color-dark-bg);
     color: #9CA3AF;
-    padding: 60px 0 24px 0;
+    padding: 48px 0 24px 0;
 }
 
 .footer-columns {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 48px;
-    margin-bottom: 48px;
+    grid-template-columns: 1fr;
+    gap: 32px;
+    margin-bottom: 36px;
 }
 
 .footer-col h4 {
@@ -892,161 +957,172 @@ h3 {
     color: #6B7280;
 }
 
-/* --- Bouton Hamburger Figma (Caché sur PC, visible sur Mobile) --- */
-.burger-btn {
-    display: none;
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 6px;
-    flex-direction: column;
-    justify-content: space-between;
-    width: 32px;
-    height: 24px;
-    z-index: 1001;
-}
-
-.burger-btn span {
-    display: block;
-    width: 100%;
-    height: 3px;
-    background-color: var(--color-primary, #721B29);
-    border-radius: 2px;
-    transition: var(--transition-smooth);
-}
-
-/* Animation en croix lors de l'ouverture */
-.burger-btn.active span:nth-child(1) {
-    transform: translateY(7px) rotate(45deg);
-}
-.burger-btn.active span:nth-child(2) {
-    opacity: 0;
-}
-.burger-btn.active span:nth-child(3) {
-    transform: translateY(-7px) rotate(-45deg);
-}
-
-/* Masquer le bloc d'authentification mobile sur grand écran */
-.mobile-auth-slot {
-    display: none;
-}
-
-/* --- Adaptations Mobile (< 900 px - Conforme Maquette Figma) --- */
-@media (max-width: 900px) {
+/* ==========================================================================
+   2. TABLETTE (>= 768px)
+   ========================================================================== */
+@media (min-width: 768px) {
+    .container-1296 {
+        padding: 0 24px;
+    }
 
     .page-section {
-        padding: 32px 16px !important;
-    }
-
-    .container-1296 {
-        padding: 0 16px !important;
-    }
-    
-    /* Barre de navigation mobile */
-    .header-nav .navbar-container {
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-        padding: 12px 20px !important;
-        position: relative;
-    }
-
-    .brand-name {
-        font-size: 20px;
-    }
-
-    .brand-tagline {
-        font-size: 10px;
-    }
-
-    /* Affichage du bouton hamburger */
-    .burger-btn {
-        display: flex !important;
-    }
-
-    /* Tiroir de navigation mobile */
-    .header-nav nav {
-        display: none;
-        position: absolute;
-        top: 100%;
-        left: 0;
-        width: 100%;
-        background-color: #FFFFFF;
-        border-bottom: 3px solid var(--color-primary, #721B29);
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-        padding: 20px 24px;
-        box-sizing: border-box;
-    }
-
-    .header-nav nav.open {
-        display: block !important;
-    }
-
-    .nav-menu {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-        width: 100%;
-    }
-
-    .nav-link {
-        font-size: 15px;
-        font-weight: 600;
-        padding: 10px 0;
-        border-bottom: 1px solid var(--color-border, #E5E7EB);
-        display: block;
-        width: 100%;
-    }
-
-    .nav-link.active::after {
-        display: none;
-    }
-
-    /* Masquer les boutons de connexion / profil de la barre supérieure */
-    .header-nav .btn-connexion,
-    .header-nav .navbar-container > div:last-child {
-        display: none !important;
-    }
-
-    /* Espace de connexion / profil inséré dans le tiroir mobile */
-    .mobile-auth-slot {
-        display: flex !important;
-        margin-top: 16px;
-        padding-top: 16px;
-        border-top: 1px dashed var(--color-border, #E5E7EB);
-        flex-direction: column;
-        gap: 12px;
-    }
-    .mobile-auth-slot a,
-    .mobile-auth-slot button {
-        width: 100%;
-        text-align: center;
-        justify-content: center;
-        display: flex;
-        box-sizing: border-box;
-    }
-
-    /* Blocs de contenu responsive existants */
-    .hero-layout, 
-    .catalog-layout, 
-    .order-layout, 
-    .pillars-grid, 
-    .testimonials-grid, 
-    .footer-columns {
-        grid-template-columns: 1fr;
-        gap: 32px;
+        padding: 48px 24px;
     }
 
     .hero-image-container,
     .hero-image-placeholder {
-        height: 260px;
+        height: 320px;
     }
 
+    .order-menu-header-img {
+        height: 280px;
+    }
+
+    .pillars-grid,
+    .testimonials-grid,
     .menus-grid-2x2 {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ==========================================================================
+   3. DESKTOP (>= 900px)
+   ========================================================================== */
+@media (min-width: 900px) {
+    h1 {
+        font-size: 36px;
+    }
+
+    h2 {
+        font-size: 30px;
+    }
+
+    h3 {
+        font-size: 20px;
+    }
+
+    .page-section {
+        padding: 64px 24px;
+    }
+
+    .section-center-header {
+        margin-bottom: 40px;
+    }
+
+    /* Navigation horizontale Desktop */
+    .navbar-container {
+        padding: 16px 24px;
+        display: grid;
+        grid-template-columns: 1fr auto 1fr;
+    }
+
+    .brand-wrapper {
+        justify-self: start;
+    }
+
+    .brand-name {
+        font-size: 24px;
+    }
+
+    .brand-tagline {
+        font-size: 11px;
+    }
+
+    .burger-btn {
+        display: none;
+    }
+
+    .header-nav nav {
+        display: block;
+        position: static;
+        width: auto;
+        background-color: transparent;
+        border-bottom: none;
+        box-shadow: none;
+        padding: 0;
+        justify-self: center;
+    }
+
+    .nav-menu {
+        flex-direction: row;
+        align-items: center;
+        gap: 32px;
+        width: auto;
+    }
+
+    .nav-link {
+        font-weight: 500;
+        font-size: 14px;
+        padding: 0 0 4px 0;
+        border-bottom: none;
+        display: inline-block;
+        width: auto;
+    }
+
+    .nav-link.active::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        height: 2px;
+        background-color: var(--color-primary);
+    }
+
+    .header-nav .btn-connexion,
+    .header-nav .navbar-container > div:last-child {
+        display: inline-flex !important;
+        justify-self: end;
+    }
+
+    .mobile-auth-slot {
+        display: none !important;
+    }
+
+    /* Grilles Desktop */
+    .hero-layout {
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 48px;
+        padding: 60px 0;
+    }
+
+    .hero-image-container,
+    .hero-image-placeholder {
+        height: 380px;
+    }
+
+    .pillars-grid,
+    .testimonials-grid,
+    .footer-columns {
+        grid-template-columns: repeat(3, 1fr);
+    }
+
+    .catalog-layout {
+        grid-template-columns: 294px 1fr;
+        margin-top: 32px;
+    }
+
+    .order-layout {
+        grid-template-columns: 7fr 5fr;
+        margin-bottom: 60px;
+    }
+
+    .order-menu-header-img {
+        height: 320px;
     }
 
     .configurator-sticky {
-        position: static;
+        padding: 28px;
+        position: sticky;
+        top: 90px;
+    }
+
+    .site-footer {
+        padding: 60px 0 24px 0;
+    }
+
+    .footer-columns {
+        gap: 48px;
+        margin-bottom: 48px;
     }
 }

@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     dateMin.setDate(dateMin.getDate() + 7);
     const dateMinIso = dateMin.toISOString().slice(0, 16);
     inputDate.min = dateMinIso;
-    inputDate.value = dateMinIso; // valeur indicative par défaut
+    inputDate.value = dateMinIso;
 
     // 2. Charger les menus depuis l'API REST
     fetch('/api/menus')
@@ -46,58 +46,111 @@ document.addEventListener('DOMContentLoaded', () => {
         })
         .catch(err => console.error('Erreur chargement menus:', err));
 
+    function createSpecItem(label, valeur) {
+        const li = document.createElement('li');
+        const span = document.createElement('span');
+        span.textContent = valeur;
+        li.append(document.createTextNode(`${label} : `), span);
+        return li;
+    }
+
     function renderMenus(menus) {
-        menusContainer.innerHTML = '';
+        const fragment = document.createDocumentFragment();
+
         menus.forEach(menu => {
             const card = document.createElement('article');
             card.className = 'menu-card';
-            card.innerHTML = `
-                <div class="menu-card-header">
-                    <div class="menu-card-badges">
-                        <span class="badge badge-theme">${menu.theme}</span>
-                        <span class="badge badge-regime">${menu.regime}</span>
-                    </div>
-                    <h3 class="menu-card-title">${menu.titre}</h3>
-                </div>
-                <div class="menu-card-body">
-                    <p class="menu-card-desc">${menu.description}</p>
-                    <ul class="menu-specs">
-                        <li>Convives minimum : <span>${menu.convives_min} pers.</span></li>
-                        <li>Délai de commande : <span>${menu.delai_min_jours} jours min.</span></li>
-                        <li>Stock restant : <span>${menu.stock_disponible} dispo.</span></li>
-                    </ul>
-                </div>
-                <div class="menu-card-footer">
-                    <div class="menu-price">${parseFloat(menu.prix_unitaire_ttc).toFixed(2)} € <small>/ pers.</small></div>
-                    <button class="btn btn-accent btn-details" data-id="${menu.id}">Voir le menu</button>
-                </div>
-            `;
-            menusContainer.appendChild(card);
+
+            // En-tête de carte
+            const header = document.createElement('div');
+            header.className = 'menu-card-header';
+
+            const badgesDiv = document.createElement('div');
+            badgesDiv.className = 'menu-card-badges';
+
+            const spanTheme = document.createElement('span');
+            spanTheme.className = 'badge badge-theme';
+            spanTheme.textContent = menu.theme || '';
+
+            const spanRegime = document.createElement('span');
+            spanRegime.className = 'badge badge-regime';
+            spanRegime.textContent = menu.regime || '';
+
+            badgesDiv.append(spanTheme, spanRegime);
+
+            const title = document.createElement('h3');
+            title.className = 'menu-card-title';
+            title.textContent = menu.titre || '';
+
+            header.append(badgesDiv, title);
+
+            // Corps de carte
+            const body = document.createElement('div');
+            body.className = 'menu-card-body';
+
+            const desc = document.createElement('p');
+            desc.className = 'menu-card-desc';
+            desc.textContent = menu.description || '';
+
+            const specsList = document.createElement('ul');
+            specsList.className = 'menu-specs';
+            specsList.append(
+                createSpecItem('Convives minimum', `${menu.convives_min} pers.`),
+                createSpecItem('Délai de commande', `${menu.delai_min_jours} jours min.`),
+                createSpecItem('Stock restant', `${menu.stock_disponible} dispo.`)
+            );
+
+            body.append(desc, specsList);
+
+            // Pied de carte
+            const footer = document.createElement('div');
+            footer.className = 'menu-card-footer';
+
+            const priceDiv = document.createElement('div');
+            priceDiv.className = 'menu-price';
+            const smallUnit = document.createElement('small');
+            smallUnit.textContent = '/ pers.';
+            priceDiv.append(
+                document.createTextNode(`${parseFloat(menu.prix_unitaire_ttc || 0).toFixed(2)} € `),
+                smallUnit
+            );
+
+            const btnDetails = document.createElement('button');
+            btnDetails.type = 'button';
+            btnDetails.className = 'btn btn-accent btn-details';
+            btnDetails.textContent = 'Voir le menu';
+            btnDetails.addEventListener('click', () => ouvrirDetailsMenu(menu.id));
+
+            footer.append(priceDiv, btnDetails);
+            card.append(header, body, footer);
+            fragment.appendChild(card);
         });
 
-        document.querySelectorAll('.btn-details').forEach(button => {
-            button.addEventListener('click', (e) => {
-                ouvrirDetailsMenu(e.target.getAttribute('data-id'));
-            });
-        });
+        menusContainer.replaceChildren(fragment);
     }
 
     function populateMenuSelect(menus) {
-        selectMenu.innerHTML = '<option value="">-- Choisir une formule --</option>';
+        const defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '-- Choisir une formule --';
+
+        const options = [defaultOpt];
         menus.forEach(m => {
             const opt = document.createElement('option');
-            opt.value = m.id;
-            opt.textContent = `${m.titre} (${parseFloat(m.prix_unitaire_ttc).toFixed(2)} € / pers.)`;
-            selectMenu.appendChild(opt);
+            opt.value = String(m.id);
+            opt.textContent = `${m.titre} (${parseFloat(m.prix_unitaire_ttc || 0).toFixed(2)} € / pers.)`;
+            options.push(opt);
         });
+
+        selectMenu.replaceChildren(...options);
     }
 
     // Mise à jour de l'aide sur le nombre minimum de convives
     selectMenu.addEventListener('change', () => {
         const m = listeMenus.find(item => item.id == selectMenu.value);
         if (m) {
-            convivesHelp.textContent = `Convives minimum requis : ${m.convives_min} personnes (Remise -10% dès ${parseInt(m.convives_min) + 5} pers.)`;
-            if (!inputConvives.value || parseInt(inputConvives.value) < parseInt(m.convives_min)) {
+            convivesHelp.textContent = `Convives minimum requis : ${m.convives_min} personnes (Remise -10% dès ${parseInt(m.convives_min, 10) + 5} pers.)`;
+            if (!inputConvives.value || parseInt(inputConvives.value, 10) < parseInt(m.convives_min, 10)) {
                 inputConvives.value = m.convives_min;
             }
         }
@@ -113,29 +166,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (res.statut !== 'succes') return;
                 const menu = res.donnees;
 
-                modalTitle.textContent = menu.titre;
-                modalDesc.textContent = menu.description;
-                modalPlatsContainer.innerHTML = '';
+                modalTitle.textContent = menu.titre || '';
+                modalDesc.textContent = menu.description || '';
 
+                const fragment = document.createDocumentFragment();
                 if (menu.plats) {
                     menu.plats.forEach(plat => {
                         const platDiv = document.createElement('div');
                         platDiv.className = 'plat-item';
-                        let badgesHtml = '';
+
+                        const catDiv = document.createElement('div');
+                        catDiv.className = 'plat-category';
+                        catDiv.textContent = plat.categorie || '';
+
+                        const nomDiv = document.createElement('div');
+                        nomDiv.className = 'plat-nom';
+                        nomDiv.textContent = plat.nom || '';
+
+                        const descDiv = document.createElement('div');
+                        descDiv.style.fontSize = '0.85rem';
+                        descDiv.style.color = 'var(--text-muted)';
+                        descDiv.textContent = plat.description || '';
+
+                        const allergenesDiv = document.createElement('div');
+                        allergenesDiv.className = 'allergenes-list';
+
                         if (plat.allergenes && plat.allergenes.length > 0) {
-                            badgesHtml = plat.allergenes.map(a => `<span class="badge-inco">⚠️ ${a.nom}</span>`).join(' ');
+                            plat.allergenes.forEach((a, idx) => {
+                                if (idx > 0) allergenesDiv.appendChild(document.createTextNode(' '));
+                                const badge = document.createElement('span');
+                                badge.className = 'badge-inco';
+                                badge.textContent = `⚠️ ${a.nom}`;
+                                allergenesDiv.appendChild(badge);
+                            });
                         } else {
-                            badgesHtml = '<span style="font-size: 0.75rem; color: var(--success);">Aucun allergène majeur déclaré</span>';
+                            const safeSpan = document.createElement('span');
+                            safeSpan.style.fontSize = '0.75rem';
+                            safeSpan.style.color = 'var(--success)';
+                            safeSpan.textContent = 'Aucun allergène majeur déclaré';
+                            allergenesDiv.appendChild(safeSpan);
                         }
-                        platDiv.innerHTML = `
-                            <div class="plat-category">${plat.categorie}</div>
-                            <div class="plat-nom">${plat.nom}</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">${plat.description || ''}</div>
-                            <div class="allergenes-list">${badgesHtml}</div>
-                        `;
-                        modalPlatsContainer.appendChild(platDiv);
+
+                        platDiv.append(catDiv, nomDiv, descDiv, allergenesDiv);
+                        fragment.appendChild(platDiv);
                     });
                 }
+
+                modalPlatsContainer.replaceChildren(fragment);
                 modal.classList.add('active');
             });
     }
@@ -159,8 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
         errorBox.style.display = 'none';
 
         const payload = {
-            menu_id: parseInt(selectMenu.value),
-            nb_convives: parseInt(inputConvives.value),
+            menu_id: parseInt(selectMenu.value, 10),
+            nb_convives: parseInt(inputConvives.value, 10),
             distance_km: parseFloat(inputDistance.value || 0),
             date_livraison: inputDate.value.replace('T', ' ') + ':00',
             ville: inputVille.value.trim()
@@ -210,7 +287,15 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function afficherErreurs(erreurs) {
-        errorBox.innerHTML = '<strong>Validation impossible :</strong><br>' + erreurs.join('<br>');
+        const strong = document.createElement('strong');
+        strong.textContent = 'Validation impossible :';
+
+        const nodes = [strong];
+        erreurs.forEach(err => {
+            nodes.push(document.createElement('br'), document.createTextNode(String(err || '')));
+        });
+
+        errorBox.replaceChildren(...nodes);
         errorBox.style.display = 'block';
         resultContent.style.display = 'block';
         resultPlaceholder.style.display = 'none';
@@ -227,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
             date_livraison: simulationCourante.date_livraison,
             ville: simulationCourante.ville_livraison,
             adresse_livraison: inputAdresse.value.trim() || 'Adresse fournie par client',
-            utilisateur_id: 4 // Client de test par défaut
+            utilisateur_id: 4
         };
 
         btnValiderCommande.disabled = true;
@@ -249,7 +334,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 btnValiderCommande.textContent = 'Confirmer et commander';
             }
         })
-        .catch(err => {
+        .catch(() => {
             alert('Erreur de communication avec le serveur.');
             btnValiderCommande.disabled = false;
             btnValiderCommande.textContent = 'Confirmer et commander';
