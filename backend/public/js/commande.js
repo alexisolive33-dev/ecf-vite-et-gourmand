@@ -14,7 +14,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const currentUserId = user ? (user.id || user.utilisateur_id) : null;
     const urlParams = new URLSearchParams(window.location.search);
-    const menuId = parseInt(urlParams.get('id')) || 1;
+    const menuId = parseInt(urlParams.get('id'), 10) || 1;
 
     let currentMenu = null;
     let nbConvives = 6;
@@ -61,6 +61,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const valTotalTtc = document.getElementById('val-total-ttc');
     const btnValider = document.getElementById('btn-valider-commande');
 
+    function setSingleOption(selectEl, text, value = '') {
+        if (!selectEl) return;
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = text;
+        selectEl.replaceChildren(opt);
+    }
+
     // 2. Auto-remplissage sécurisé si connecté
     if (user) {
         if (inputNom && user.nom) inputNom.value = user.nom;
@@ -96,8 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 currentMenu = res.donnees;
                 renderMenuDetails(currentMenu);
 
-                // Initialisation systématique au minimum exact du menu (sans remise par défaut)
-                nbConvives = parseInt(currentMenu.convives_min) || 6;
+                nbConvives = parseInt(currentMenu.convives_min, 10) || 6;
                 recalculerDevis();
 
                 if (inputCp && inputCp.value.trim().length === 5) {
@@ -108,15 +115,21 @@ document.addEventListener('DOMContentLoaded', () => {
         .catch(err => console.error('Erreur chargement menu:', err));
 
     function renderMenuDetails(menu) {
-        if (breadcrumbCurrent) breadcrumbCurrent.textContent = menu.titre;
-        if (menuTitre) menuTitre.textContent = menu.titre;
-        if (menuDesc) menuDesc.textContent = menu.description;
-        
+        if (breadcrumbCurrent) breadcrumbCurrent.textContent = menu.titre || '';
+        if (menuTitre) menuTitre.textContent = menu.titre || '';
+        if (menuDesc) menuDesc.textContent = menu.description || '';
+
         const imageUrl = menu.image_url || '/assets/images/menus/default-menu.webp';
         if (photoLabel) {
-            photoLabel.innerHTML = `
-                <img src="${imageUrl}" alt="Menu ${menu.titre}" style="width:100%; height:100%; object-fit:cover; display:block;" onerror="this.onerror=null; this.src='/assets/images/menus/default-menu.webp';">
-            `;
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.alt = `Menu ${menu.titre || ''}`;
+            img.style.cssText = 'width:100%; height:100%; object-fit:cover; display:block;';
+            img.addEventListener('error', () => {
+                img.src = '/assets/images/menus/default-menu.webp';
+            }, { once: true });
+
+            photoLabel.replaceChildren(img);
             photoLabel.style.width = '100%';
             photoLabel.style.height = '100%';
             photoLabel.style.position = 'absolute';
@@ -124,33 +137,58 @@ document.addEventListener('DOMContentLoaded', () => {
             photoLabel.style.left = '0';
             photoLabel.style.zIndex = '1';
         }
-        
+
         const regimeAffiche = menu.regime ? (menu.regime.charAt(0).toUpperCase() + menu.regime.slice(1)) : 'Classique';
         if (badgeRegime) { badgeRegime.textContent = regimeAffiche; badgeRegime.style.zIndex = '2'; }
         if (badgeStock) { badgeStock.textContent = `Il reste ${menu.stock_disponible} commandes disponibles`; badgeStock.style.zIndex = '2'; }
         if (badgeThemeTop) { badgeThemeTop.textContent = `THÈME : ${(menu.theme || '').toUpperCase()}`; badgeThemeTop.style.zIndex = '2'; }
 
-        if (configPrixUnit) configPrixUnit.textContent = `${parseFloat(menu.prix_unitaire_ttc).toFixed(2).replace('.', ',')} € / personne`;
+        if (configPrixUnit) configPrixUnit.textContent = `${parseFloat(menu.prix_unitaire_ttc || 0).toFixed(2).replace('.', ',')} € / personne`;
         if (configMinConvives) configMinConvives.textContent = `Minimum ${menu.convives_min} convives`;
 
         if (compositionList) {
-            compositionList.innerHTML = '';
+            const fragment = document.createDocumentFragment();
             if (menu.plats && Array.isArray(menu.plats)) {
                 menu.plats.forEach(plat => {
                     const item = document.createElement('div');
                     item.className = 'composition-item';
-                    const tagsHtml = (plat.allergenes && plat.allergenes.length > 0)
-                        ? plat.allergenes.map(a => `<span class="allergen-tag" style="margin-right: 4px;">${a.nom}</span>`).join(' ')
-                        : '';
-                    item.innerHTML = `
-                        <div class="composition-category">${plat.categorie} :</div>
-                        <div class="composition-title">${plat.nom}</div>
-                        ${plat.description ? `<div style="font-size: 12px; color: var(--color-text-muted); margin-bottom: 6px;">${plat.description}</div>` : ''}
-                        <div>${tagsHtml}</div>
-                    `;
-                    compositionList.appendChild(item);
+
+                    const catDiv = document.createElement('div');
+                    catDiv.className = 'composition-category';
+                    catDiv.textContent = `${plat.categorie || ''} :`;
+                    item.appendChild(catDiv);
+
+                    const titleDiv = document.createElement('div');
+                    titleDiv.className = 'composition-title';
+                    titleDiv.textContent = plat.nom || '';
+                    item.appendChild(titleDiv);
+
+                    if (plat.description) {
+                        const descDiv = document.createElement('div');
+                        descDiv.style.fontSize = '12px';
+                        descDiv.style.color = 'var(--color-text-muted)';
+                        descDiv.style.marginBottom = '6px';
+                        descDiv.textContent = plat.description;
+                        item.appendChild(descDiv);
+                    }
+
+                    const tagsDiv = document.createElement('div');
+                    if (plat.allergenes && plat.allergenes.length > 0) {
+                        plat.allergenes.forEach((a, idx) => {
+                            if (idx > 0) tagsDiv.appendChild(document.createTextNode(' '));
+                            const tag = document.createElement('span');
+                            tag.className = 'allergen-tag';
+                            tag.style.marginRight = '4px';
+                            tag.textContent = a.nom || '';
+                            tagsDiv.appendChild(tag);
+                        });
+                    }
+                    item.appendChild(tagsDiv);
+
+                    fragment.appendChild(item);
                 });
             }
+            compositionList.replaceChildren(fragment);
         }
     }
 
@@ -158,7 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnMinus) {
         btnMinus.addEventListener('click', () => {
             if (!currentMenu) return;
-            const min = parseInt(currentMenu.convives_min) || 1;
+            const min = parseInt(currentMenu.convives_min, 10) || 1;
             if (nbConvives > min) {
                 nbConvives--;
                 recalculerDevis();
@@ -184,9 +222,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 chargerVillesParCp(cp);
             } else {
                 listeCommunesTrouvees = [];
-                if (selectVille) {
-                    selectVille.innerHTML = '<option value="">Entrez un code postal (5 chiffres)...</option>';
-                }
+                setSingleOption(selectVille, 'Entrez un code postal (5 chiffres)...');
                 if (inputDistance) inputDistance.value = 0;
                 recalculerDevis();
             }
@@ -195,7 +231,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function chargerVillesParCp(codePostal, villeSelectionnee = '') {
         if (!selectVille) return;
-        selectVille.innerHTML = '<option value="">Recherche des communes en cours...</option>';
+        setSingleOption(selectVille, 'Recherche des communes en cours...');
         selectVille.disabled = true;
 
         try {
@@ -203,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const communes = await res.json();
 
             if (!communes || communes.length === 0) {
-                selectVille.innerHTML = '<option value="">Aucune commune trouvée pour ce code postal</option>';
+                setSingleOption(selectVille, 'Aucune commune trouvée pour ce code postal');
                 selectVille.disabled = false;
                 if (inputDistance) inputDistance.value = 0;
                 recalculerDevis();
@@ -211,13 +247,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             listeCommunesTrouvees = communes;
-            selectVille.innerHTML = '';
+            const optionsFragment = document.createDocumentFragment();
 
             if (communes.length > 1) {
                 const optDefault = document.createElement('option');
                 optDefault.value = '';
                 optDefault.textContent = `-- Choisissez parmi les ${communes.length} communes --`;
-                selectVille.appendChild(optDefault);
+                optionsFragment.appendChild(optDefault);
             }
 
             let indexSelectionne = communes.length === 1 ? 0 : -1;
@@ -231,9 +267,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     opt.selected = true;
                     indexSelectionne = index;
                 }
-                selectVille.appendChild(opt);
+                optionsFragment.appendChild(opt);
             });
 
+            selectVille.replaceChildren(optionsFragment);
             selectVille.disabled = false;
 
             if (indexSelectionne >= 0) {
@@ -245,7 +282,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (err) {
             console.error("Erreur API Communes :", err);
-            selectVille.innerHTML = '<option value="">Erreur de recherche (réseau)</option>';
+            setSingleOption(selectVille, 'Erreur de recherche (réseau)');
             selectVille.disabled = false;
             recalculerDevis();
         }
@@ -342,7 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function recalculerDevis() {
         if (!currentMenu) return;
 
-        const minConvives = parseInt(currentMenu.convives_min) || 6;
+        const minConvives = parseInt(currentMenu.convives_min, 10) || 6;
         if (nbConvives < minConvives) nbConvives = minConvives;
 
         if (displayNbConvives) displayNbConvives.textContent = `${nbConvives} convives`;
@@ -353,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const villeVal = (selectVille && selectVille.value.trim()) ? selectVille.value.trim() : 'Bordeaux';
         const dateVal = (inputDate && inputDate.value) ? inputDate.value.replace('T', ' ') + ':00' : toLocalInputIso(dateDefaut).replace('T', ' ') + ':00';
 
-        // 5a. Calcul immédiat côté client (0 latence, jamais bloqué)
+        // 5a. Calcul immédiat côté client
         const remiseAppliquee = nbConvives >= (minConvives + 5);
         const sousTotalBrut = Math.round(prixUnit * nbConvives * 100) / 100;
         const montantRemise = remiseAppliquee ? Math.round(sousTotalBrut * 0.10 * 100) / 100 : 0;
@@ -451,7 +488,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             fetch('/api/commandes', {
                 method: 'POST',
-                headers: { 
+                headers: {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${authToken}`
                 },
@@ -467,7 +504,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     btnValider.textContent = 'Valider et passer à la commande →';
                 }
             })
-            .catch(err => {
+            .catch(() => {
                 alert('Erreur lors de la communication avec le serveur.');
                 btnValider.disabled = false;
                 btnValider.textContent = 'Valider et passer à la commande →';
@@ -476,41 +513,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function majNavbar(userData) {
-        const navRightBtn = document.querySelector('.btn-connexion') || 
-                            document.querySelector('.header-nav a[href*="login"]') || 
+        const navRightBtn = document.querySelector('.btn-connexion') ||
+                            document.querySelector('.header-nav a[href*="login"]') ||
                             Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toLowerCase() === 'connexion');
 
         if (navRightBtn && userData) {
             const isAdmin = userData.role === 'admin' || userData.role === 'employe';
             const profileWrapper = document.createElement('div');
             profileWrapper.style.cssText = 'display: inline-flex; align-items: center; gap: 10px;';
-            profileWrapper.innerHTML = `
-                ${isAdmin ? `
-                    <a href="/admin.html" style="background: var(--color-primary, #721B29); color: #FFFFFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                        ⚙️ Admin
-                    </a>
-                ` : ''}
-                <a href="/compte.html" title="Accéder à mon espace client" style="text-decoration: none; font-size: 13px; font-weight: 600; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                    👤 ${userData.prenom}
-                </a>
-                <button type="button" id="btn-logout" style="background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                    Déconnexion
-                </button>
-            `;
 
-            navRightBtn.replaceWith(profileWrapper);
-
-            const btnLogout = document.getElementById('btn-logout');
-            if (btnLogout) {
-                btnLogout.addEventListener('click', () => {
-                    localStorage.removeItem('auth_token');
-                    localStorage.removeItem('user_profile');
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    sessionStorage.clear();
-                    window.location.href = '/';
-                });
+            if (isAdmin) {
+                const adminLink = document.createElement('a');
+                adminLink.href = '/admin.html';
+                adminLink.style.cssText = 'background: var(--color-primary, #721B29); color: #FFFFFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;';
+                adminLink.textContent = '⚙️ Admin';
+                profileWrapper.appendChild(adminLink);
             }
+
+            const profileLink = document.createElement('a');
+            profileLink.href = '/compte.html';
+            profileLink.title = 'Accéder à mon espace client';
+            profileLink.style.cssText = 'text-decoration: none; font-size: 13px; font-weight: 600; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px; cursor: pointer;';
+            profileLink.textContent = `👤 ${userData.prenom || ''}`;
+
+            const btnLogout = document.createElement('button');
+            btnLogout.type = 'button';
+            btnLogout.id = 'btn-logout';
+            btnLogout.style.cssText = 'background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;';
+            btnLogout.textContent = 'Déconnexion';
+            btnLogout.addEventListener('click', () => {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user_profile');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                sessionStorage.clear();
+                window.location.href = '/';
+            });
+
+            profileWrapper.append(profileLink, btnLogout);
+            navRightBtn.replaceWith(profileWrapper);
         }
     }
 
@@ -518,27 +559,57 @@ document.addEventListener('DOMContentLoaded', () => {
         const overlay = document.createElement('div');
         overlay.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.65); display:flex; align-items:center; justify-content:center; z-index:9999;';
 
-        overlay.innerHTML = `
-            <div style="background:#ffffff; border-radius:8px; padding:32px; max-width:480px; width:90%; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.25);">
-                <div style="font-size:42px; margin-bottom:12px;">🎉</div>
-                <h2 style="font-size:22px; color:#1F2937; margin-bottom:10px;">Félicitations ${userData.prenom} !</h2>
-                <p style="font-size:14px; color:#4B5563; line-height:1.5; margin-bottom:18px;">
-                    Votre commande <strong>n° ${commande.numero_commande}</strong> a été enregistrée avec succès.<br>
-                    Montant total : <strong>${commande.total_ttc} € TTC</strong>.
-                </p>
-                <div style="background:#F3F4F6; border-radius:6px; padding:12px; font-size:12px; color:#6B7280; margin-bottom:20px; text-align:left;">
-                    ✉️ Un e-mail de confirmation vient d'être envoyé à <strong>${userData.email}</strong>.<br>
-                    👨‍🍳 Julie & José valideront votre prestation sous 24h.
-                </div>
-                <button id="modal-btn-ok" class="btn-cta" style="width:100%; height:42px; cursor:pointer;">
-                    Suivre ma commande dans mon espace client
-                </button>
-            </div>
-        `;
+        const modalBox = document.createElement('div');
+        modalBox.style.cssText = 'background:#ffffff; border-radius:8px; padding:32px; max-width:480px; width:90%; text-align:center; box-shadow:0 10px 25px rgba(0,0,0,0.25);';
 
-        document.body.appendChild(overlay);
-        document.getElementById('modal-btn-ok').addEventListener('click', () => {
+        const iconDiv = document.createElement('div');
+        iconDiv.style.cssText = 'font-size:42px; margin-bottom:12px;';
+        iconDiv.textContent = '🎉';
+
+        const titleEl = document.createElement('h2');
+        titleEl.style.cssText = 'font-size:22px; color:#1F2937; margin-bottom:10px;';
+        titleEl.textContent = `Félicitations ${userData.prenom || ''} !`;
+
+        const descP = document.createElement('p');
+        descP.style.cssText = 'font-size:14px; color:#4B5563; line-height:1.5; margin-bottom:18px;';
+        const strongNum = document.createElement('strong');
+        strongNum.textContent = `n° ${commande.numero_commande || ''}`;
+        const strongTotal = document.createElement('strong');
+        strongTotal.textContent = `${commande.total_ttc || ''} € TTC`;
+        descP.append(
+            document.createTextNode('Votre commande '),
+            strongNum,
+            document.createTextNode(' a été enregistrée avec succès.'),
+            document.createElement('br'),
+            document.createTextNode('Montant total : '),
+            strongTotal,
+            document.createTextNode('.')
+        );
+
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = 'background:#F3F4F6; border-radius:6px; padding:12px; font-size:12px; color:#6B7280; margin-bottom:20px; text-align:left;';
+        const strongEmail = document.createElement('strong');
+        strongEmail.textContent = userData.email || '';
+        infoDiv.append(
+            document.createTextNode("✉️ Un e-mail de confirmation vient d'être envoyé à "),
+            strongEmail,
+            document.createTextNode('.'),
+            document.createElement('br'),
+            document.createTextNode('👨‍🍳 Julie & José valideront votre prestation sous 24h.')
+        );
+
+        const btnOk = document.createElement('button');
+        btnOk.type = 'button';
+        btnOk.id = 'modal-btn-ok';
+        btnOk.className = 'btn-cta';
+        btnOk.style.cssText = 'width:100%; height:42px; cursor:pointer;';
+        btnOk.textContent = 'Suivre ma commande dans mon espace client';
+        btnOk.addEventListener('click', () => {
             window.location.href = '/compte.html';
         });
+
+        modalBox.append(iconDiv, titleEl, descP, infoDiv, btnOk);
+        overlay.appendChild(modalBox);
+        document.body.appendChild(overlay);
     }
 });

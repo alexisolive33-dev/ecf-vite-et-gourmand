@@ -86,26 +86,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     commandesCache = [];
                     if (emptyEl) emptyEl.style.display = 'block';
-                    if (listEl) listEl.innerHTML = '';
+                    if (listEl) listEl.replaceChildren();
                 }
             })
             .catch(err => {
                 console.error('Erreur API commandes:', err);
                 if (loadingEl) {
-                    loadingEl.innerHTML = `<p style="color: var(--color-primary);">Impossible de charger vos commandes : ${err.message}</p>`;
+                    const errP = document.createElement('p');
+                    errP.style.color = 'var(--color-primary)';
+                    errP.textContent = `Impossible de charger vos commandes : ${err.message}`;
+                    loadingEl.replaceChildren(errP);
                 }
             });
     }
 
-    function badgeAvisEnvoyeHtml() {
-        return `<span style="display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: #DCFCE7; color: #166534; border-radius: 6px; font-size: 12px; font-weight: 700;">✓ Avis déjà envoyé</span>`;
+    function creerBadgeAvisEnvoye() {
+        const span = document.createElement('span');
+        span.style.cssText = 'display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; background: #DCFCE7; color: #166534; border-radius: 6px; font-size: 12px; font-weight: 700;';
+        span.textContent = '✓ Avis déjà envoyé';
+        return span;
     }
 
     function marquerCommandeCommeNotee(cmdId) {
         commandesDejaNotees.add(Number(cmdId));
         const btn = document.querySelector(`.btn-avis-order[data-id="${cmdId}"]`);
         if (btn) {
-            btn.outerHTML = badgeAvisEnvoyeHtml();
+            btn.replaceWith(creerBadgeAvisEnvoye());
         }
     }
 
@@ -122,19 +128,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }).replace(':', 'h').replace(' ', ' à ');
     }
 
+    function createDetailLine(label, value) {
+        const p = document.createElement('p');
+        const strong = document.createElement('strong');
+        strong.textContent = `${label} : `;
+        p.append(strong, document.createTextNode(value));
+        return p;
+    }
+
     function afficherCommandes(commandes, container) {
         if (!container) return;
-        container.innerHTML = '';
+        const fragment = document.createDocumentFragment();
 
         commandes.forEach(cmd => {
             const card = document.createElement('article');
             card.className = 'order-card';
 
             const rawStatut = (cmd.statut || 'en_attente').toLowerCase().replace(/\s+/g, '_').normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-            
+
             const rawDateCreation = cmd.date_creation || cmd.date_commande || cmd.created_at;
             const dateCreation = rawDateCreation ? new Date(rawDateCreation.replace(' ', 'T')).toLocaleDateString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric' }) : 'Récemment';
-            
+
             const rawDatePrestation = cmd.date_livraison_souhaitee || cmd.date_livraison;
             let datePrestation = 'Non précisée';
             if (rawDatePrestation) {
@@ -168,92 +182,126 @@ document.addEventListener('DOMContentLoaded', () => {
             const estTerminee = rawStatut.includes('livr') || rawStatut.includes('term');
             const dejaNotee = commandesDejaNotees.has(Number(cmd.id));
 
-            const timelineHtml = genererTimeline(rawStatut, cmd.historique || [], rawDateCreation);
+            // 1. En-tête de carte
+            const header = document.createElement('div');
+            header.className = 'order-card-header';
 
-            let actionAvisHtml = '';
-            if (estTerminee) {
-                actionAvisHtml = dejaNotee
-                    ? badgeAvisEnvoyeHtml()
-                    : `<button type="button" class="btn-avis-order" data-id="${cmd.id}">★ Laisser un avis</button>`;
+            const headerLeft = document.createElement('div');
+            const spanNum = document.createElement('span');
+            spanNum.className = 'order-num';
+            spanNum.textContent = `Commande n° ${cmd.numero_commande || ('CMD-' + cmd.id)}`;
+            const divDate = document.createElement('div');
+            divDate.className = 'order-date';
+            divDate.textContent = `Enregistrée le ${dateCreation}`;
+            headerLeft.append(spanNum, divDate);
+
+            const headerRight = document.createElement('div');
+            const spanBadge = document.createElement('span');
+            spanBadge.className = `status-badge ${badgeClass}`;
+            spanBadge.textContent = libelleStatut;
+            headerRight.appendChild(spanBadge);
+
+            header.append(headerLeft, headerRight);
+
+            // 2. Corps de carte
+            const body = document.createElement('div');
+            body.className = 'order-card-body';
+
+            const img = document.createElement('img');
+            img.src = cmd.image_url || '/assets/images/menus/default-menu.webp';
+            img.alt = `Menu ${cmd.menu_titre || 'Gourmand'}`;
+            img.className = 'order-thumb';
+            img.addEventListener('error', () => {
+                img.src = '/assets/images/menus/default-menu.webp';
+            }, { once: true });
+
+            const detailsDiv = document.createElement('div');
+            detailsDiv.className = 'order-details';
+            const h4Titre = document.createElement('h4');
+            h4Titre.textContent = cmd.menu_titre || 'Formule Traiteur';
+            detailsDiv.append(
+                h4Titre,
+                createDetailLine('Prestation', `Pour ${nbConvivesAffiche} convives`),
+                createDetailLine('Date & Heure', datePrestation),
+                createDetailLine('Lieu de livraison', `${cmd.adresse_livraison || ''}, ${cmd.ville_livraison || cmd.ville || 'Bordeaux'}`)
+            );
+
+            const pricingDiv = document.createElement('div');
+            pricingDiv.className = 'order-pricing';
+
+            const labelTtc = document.createElement('div');
+            labelTtc.style.cssText = 'font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px;';
+            labelTtc.textContent = 'Montant Total TTC';
+
+            const totalDiv = document.createElement('div');
+            totalDiv.className = 'order-total';
+            totalDiv.textContent = `${parseFloat(cmd.total_ttc || 0).toFixed(2).replace('.', ',')} €`;
+
+            pricingDiv.append(labelTtc, totalDiv);
+
+            if (remiseMontant > 0) {
+                const remiseDiv = document.createElement('div');
+                remiseDiv.style.cssText = 'font-size: 11px; color: #166534; font-weight: 700; margin-top: 2px;';
+                remiseDiv.textContent = `Dont remise -10 % : -${remiseMontant.toFixed(2).replace('.', ',')} €`;
+                pricingDiv.appendChild(remiseDiv);
             }
 
-            card.innerHTML = `
-                <div class="order-card-header">
-                    <div>
-                        <span class="order-num">Commande n° ${cmd.numero_commande || ('CMD-' + cmd.id)}</span>
-                        <div class="order-date">Enregistrée le ${dateCreation}</div>
-                    </div>
-                    <div>
-                        <span class="status-badge ${badgeClass}">${libelleStatut}</span>
-                    </div>
-                </div>
+            const livraisonDiv = document.createElement('div');
+            livraisonDiv.style.cssText = 'font-size: 11px; color: var(--color-text-muted); margin-top: 3px;';
+            livraisonDiv.textContent = `Dont livraison : ${parseFloat(cmd.frais_livraison || 0).toFixed(2).replace('.', ',')} €`;
+            pricingDiv.appendChild(livraisonDiv);
 
-                <div class="order-card-body">
-                    <img src="${cmd.image_url || '/assets/images/menus/default-menu.webp'}" 
-                         alt="Menu ${cmd.menu_titre || 'Gourmand'}" 
-                         class="order-thumb"
-                         onerror="this.onerror=null; this.src='/assets/images/menus/default-menu.webp';">
-                    
-                    <div class="order-details">
-                        <h4>${cmd.menu_titre || 'Formule Traiteur'}</h4>
-                        <p><strong>Prestation :</strong> Pour ${nbConvivesAffiche} convives</p>
-                        <p><strong>Date & Heure :</strong> ${datePrestation}</p>
-                        <p><strong>Lieu de livraison :</strong> ${cmd.adresse_livraison || ''}, ${cmd.ville_livraison || cmd.ville || 'Bordeaux'}</p>
-                    </div>
+            body.append(img, detailsDiv, pricingDiv);
 
-                    <div class="order-pricing">
-                        <div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 2px;">Montant Total TTC</div>
-                        <div class="order-total">${parseFloat(cmd.total_ttc || 0).toFixed(2).replace('.', ',')} €</div>
-                        ${remiseMontant > 0 ? `<div style="font-size: 11px; color: #166534; font-weight: 700; margin-top: 2px;">Dont remise -10 % : -${remiseMontant.toFixed(2).replace('.', ',')} €</div>` : ''}
-                        <div style="font-size: 11px; color: var(--color-text-muted); margin-top: 3px;">Dont livraison : ${parseFloat(cmd.frais_livraison || 0).toFixed(2).replace('.', ',')} €</div>
-                    </div>
-                </div>
+            // 3. Timeline
+            const timelineEl = creerTimelineElement(rawStatut, cmd.historique || [], rawDateCreation);
 
-                ${timelineHtml}
+            // 4. Actions
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'order-actions';
 
-                <div class="order-actions">
-                    ${peutModifierOuAnnuler ? `
-                        <button type="button" class="btn-edit-order" data-id="${cmd.id}">
-                            ✎ Modifier cette commande
-                        </button>
-                        <button type="button" class="btn-cancel-order" data-id="${cmd.id}">
-                            ✕ Annuler cette commande
-                        </button>
-                    ` : ''}
+            if (peutModifierOuAnnuler) {
+                const btnEdit = document.createElement('button');
+                btnEdit.type = 'button';
+                btnEdit.className = 'btn-edit-order';
+                btnEdit.textContent = '✎ Modifier cette commande';
+                btnEdit.addEventListener('click', () => ouvrirModalEditionCommande(cmd));
 
-                    ${actionAvisHtml}
-                </div>
-            `;
+                const btnCancel = document.createElement('button');
+                btnCancel.type = 'button';
+                btnCancel.className = 'btn-cancel-order';
+                btnCancel.textContent = '✕ Annuler cette commande';
+                btnCancel.addEventListener('click', () => {
+                    if (confirm('Êtes-vous certain de vouloir annuler cette commande ? Cette action est irréversible.')) {
+                        annulerCommande(cmd.id);
+                    }
+                });
 
-            container.appendChild(card);
-        });
+                actionsDiv.append(btnEdit, btnCancel);
+            }
 
-        document.querySelectorAll('.btn-edit-order').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const cmdId = Number(e.target.getAttribute('data-id'));
-                const cmd = commandesCache.find(c => Number(c.id) === cmdId);
-                if (cmd) ouvrirModalEditionCommande(cmd);
-            });
-        });
-
-        document.querySelectorAll('.btn-cancel-order').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const cmdId = e.target.getAttribute('data-id');
-                if (confirm('Êtes-vous certain de vouloir annuler cette commande ? Cette action est irréversible.')) {
-                    annulerCommande(cmdId);
+            if (estTerminee) {
+                if (dejaNotee) {
+                    actionsDiv.appendChild(creerBadgeAvisEnvoye());
+                } else {
+                    const btnAvis = document.createElement('button');
+                    btnAvis.type = 'button';
+                    btnAvis.className = 'btn-avis-order';
+                    btnAvis.setAttribute('data-id', String(cmd.id));
+                    btnAvis.textContent = '★ Laisser un avis';
+                    btnAvis.addEventListener('click', () => ouvrirModalAvis(cmd.id));
+                    actionsDiv.appendChild(btnAvis);
                 }
-            });
+            }
+
+            card.append(header, body, timelineEl, actionsDiv);
+            fragment.appendChild(card);
         });
 
-        document.querySelectorAll('.btn-avis-order').forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                const cmdId = e.target.getAttribute('data-id');
-                ouvrirModalAvis(cmdId);
-            });
-        });
+        container.replaceChildren(fragment);
     }
 
-    function genererTimeline(statut, historique = [], dateCreationFallback = null) {
+    function creerTimelineElement(statut, historique = [], dateCreationFallback = null) {
         const datesParStatut = {};
         if (Array.isArray(historique)) {
             historique.forEach(item => {
@@ -268,12 +316,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (statut.includes('annul')) {
+            const annulDiv = document.createElement('div');
+            annulDiv.style.cssText = 'margin-top: 14px; padding: 12px; background: #FEF2F2; border-radius: 4px; font-size: 12px; color: #991B1B;';
             const dateAnnul = datesParStatut['annulee'] ? ` le ${datesParStatut['annulee']}` : '';
-            return `
-                <div style="margin-top: 14px; padding: 12px; background: #FEF2F2; border-radius: 4px; font-size: 12px; color: #991B1B;">
-                    ⚠️ Cette commande a été annulée${dateAnnul}.
-                </div>
-            `;
+            annulDiv.textContent = `⚠️ Cette commande a été annulée${dateAnnul}.`;
+            return annulDiv;
         }
 
         const etapes = [
@@ -288,26 +335,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statut.includes('prep')) indexAtteint = 2;
         if (statut.includes('livr') || statut.includes('term')) indexAtteint = 3;
 
-        let stepsHtml = '';
+        const tracker = document.createElement('div');
+        tracker.className = 'timeline-tracker';
+
         etapes.forEach((etape, i) => {
-            let etatClass = '';
-            if (i < indexAtteint) etatClass = 'completed';
-            else if (i === indexAtteint) etatClass = 'current';
+            const stepDiv = document.createElement('div');
+            stepDiv.className = 'timeline-step';
+            if (i < indexAtteint) stepDiv.classList.add('completed');
+            else if (i === indexAtteint) stepDiv.classList.add('current');
 
-            const dateEtape = datesParStatut[etape.key]
-                ? `<div class="timeline-date">${datesParStatut[etape.key]}</div>`
-                : (i <= indexAtteint ? `<div class="timeline-date">Validé</div>` : '');
+            const circle = document.createElement('div');
+            circle.className = 'timeline-circle';
+            circle.textContent = i < indexAtteint ? '✓' : String(i + 1);
 
-            stepsHtml += `
-                <div class="timeline-step ${etatClass}">
-                    <div class="timeline-circle">${i < indexAtteint ? '✓' : (i + 1)}</div>
-                    <span class="timeline-label">${etape.label}</span>
-                    ${dateEtape}
-                </div>
-            `;
+            const label = document.createElement('span');
+            label.className = 'timeline-label';
+            label.textContent = etape.label;
+
+            stepDiv.append(circle, label);
+
+            if (datesParStatut[etape.key] || i <= indexAtteint) {
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'timeline-date';
+                dateDiv.textContent = datesParStatut[etape.key] || 'Validé';
+                stepDiv.appendChild(dateDiv);
+            }
+
+            tracker.appendChild(stepDiv);
         });
 
-        return `<div class="timeline-tracker">${stepsHtml}</div>`;
+        return tracker;
     }
 
     // Calcul de distance Haversine depuis Bordeaux (12 Cours de l'Intendance)
@@ -337,7 +394,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (Array.isArray(communes) && communes.length > 0) {
                 if (datalist) {
-                    datalist.innerHTML = communes.map(c => `<option value="${c.nom}">`).join('');
+                    const options = communes.map(c => {
+                        const opt = document.createElement('option');
+                        opt.value = c.nom;
+                        return opt;
+                    });
+                    datalist.replaceChildren(...options);
                 }
                 const communePrincipale = communes[0];
                 if (inputVille) {
@@ -379,18 +441,29 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (discountInfoEl) {
             if (aDroitReduction) {
-                discountInfoEl.innerHTML = `
-                    <span style="display: inline-block; background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 10px; border-radius: 999px;">
-                        🎉 Réduction -10 % appliquée (-${remise.toFixed(2).replace('.', ',')} €) pour +5 convives au-dessus du minimum !
-                    </span>
-                `;
+                const badge = document.createElement('span');
+                badge.style.cssText = 'display: inline-block; background: #DCFCE7; color: #166534; font-weight: 700; padding: 4px 10px; border-radius: 999px;';
+                badge.textContent = `🎉 Réduction -10 % appliquée (-${remise.toFixed(2).replace('.', ',')} €) pour +5 convives au-dessus du minimum !`;
+                discountInfoEl.replaceChildren(badge);
             } else {
                 const manquants = seuilReduction - nbConvives;
-                discountInfoEl.innerHTML = `
-                    <span style="color: #7A5810;">
-                        💡 Ajoutez encore <strong>${manquants} convive${manquants > 1 ? 's' : ''}</strong> (dès ${seuilReduction} convives) pour bénéficier de <strong>-10 %</strong> sur les repas.
-                    </span>
-                `;
+                const span = document.createElement('span');
+                span.style.color = '#7A5810';
+
+                const strongConvives = document.createElement('strong');
+                strongConvives.textContent = `${manquants} convive${manquants > 1 ? 's' : ''}`;
+
+                const strongPct = document.createElement('strong');
+                strongPct.textContent = '-10 %';
+
+                span.append(
+                    document.createTextNode('💡 Ajoutez encore '),
+                    strongConvives,
+                    document.createTextNode(` (dès ${seuilReduction} convives) pour bénéficier de `),
+                    strongPct,
+                    document.createTextNode(' sur les repas.')
+                );
+                discountInfoEl.replaceChildren(span);
             }
         }
 
@@ -505,7 +578,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-cmd-convives').value = cmd.nb_convives || cmd.convives_min || 4;
         document.getElementById('edit-cmd-convives').min = cmd.convives_min || 1;
 
-        // Extraction automatique du code postal s'il est présent à la fin de l'adresse
         const rawAdresse = String(cmd.adresse_livraison || '').trim();
         const matchCp = rawAdresse.match(/^(.*?)\s+(\d{5})$/);
         if (matchCp) {
@@ -666,8 +738,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (formAvis) {
             formAvis.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const cmdId = parseInt(document.getElementById('avis-commande-id').value);
-                const note = parseInt(document.getElementById('avis-note').value);
+                const cmdId = parseInt(document.getElementById('avis-commande-id').value, 10);
+                const note = parseInt(document.getElementById('avis-note').value, 10);
                 const commentaire = document.getElementById('avis-commentaire').value.trim();
                 const submitBtn = formAvis.querySelector('button[type="submit"]');
 
@@ -734,41 +806,44 @@ document.addEventListener('DOMContentLoaded', () => {
     // SYNCHRONISATION DE LA NAVBAR
     // ==========================================
     function majNavbar(userData) {
-        const navConnexionLink = document.querySelector('.btn-connexion') || 
-                                 document.querySelector('a[href*="login"]') || 
+        const navConnexionLink = document.querySelector('.btn-connexion') ||
+                                 document.querySelector('a[href*="login"]') ||
                                  Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toLowerCase() === 'connexion');
 
         if (navConnexionLink && userData) {
             const isAdmin = (userData.role === 'admin' || userData.role === 'employe');
             const profileWrapper = document.createElement('div');
             profileWrapper.style.cssText = 'display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; justify-self: end;';
-            profileWrapper.innerHTML = `
-                ${isAdmin ? `
-                    <a href="/admin.html" style="background: var(--color-primary, #721B29); color: #FFFFFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                        ⚙️ Admin
-                    </a>
-                ` : ''}
-                <a href="/compte.html" style="text-decoration: none; font-size: 13px; font-weight: 700; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                    👤 ${userData.prenom || ''}
-                </a>
-                <button type="button" id="btn-logout" style="background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                    Déconnexion
-                </button>
-            `;
 
-            navConnexionLink.replaceWith(profileWrapper);
-
-            const btnLogout = document.getElementById('btn-logout');
-            if (btnLogout) {
-                btnLogout.addEventListener('click', () => {
-                    localStorage.removeItem('auth_token');
-                    localStorage.removeItem('user_profile');
-                    localStorage.removeItem('token');
-                    localStorage.removeItem('user');
-                    sessionStorage.clear();
-                    window.location.href = '/';
-                });
+            if (isAdmin) {
+                const adminLink = document.createElement('a');
+                adminLink.href = '/admin.html';
+                adminLink.style.cssText = 'background: var(--color-primary, #721B29); color: #FFFFFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;';
+                adminLink.textContent = '⚙️ Admin';
+                profileWrapper.appendChild(adminLink);
             }
+
+            const profileLink = document.createElement('a');
+            profileLink.href = '/compte.html';
+            profileLink.style.cssText = 'text-decoration: none; font-size: 13px; font-weight: 700; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px; cursor: pointer;';
+            profileLink.textContent = `👤 ${userData.prenom || ''}`;
+
+            const btnLogout = document.createElement('button');
+            btnLogout.type = 'button';
+            btnLogout.id = 'btn-logout';
+            btnLogout.style.cssText = 'background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;';
+            btnLogout.textContent = 'Déconnexion';
+            btnLogout.addEventListener('click', () => {
+                localStorage.removeItem('auth_token');
+                localStorage.removeItem('user_profile');
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+                sessionStorage.clear();
+                window.location.href = '/';
+            });
+
+            profileWrapper.append(profileLink, btnLogout);
+            navConnexionLink.replaceWith(profileWrapper);
         }
     }
 });
