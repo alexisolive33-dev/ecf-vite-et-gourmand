@@ -9,6 +9,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const redirectUrl = urlParams.get('redirect');
     const tabParam = urlParams.get('tab');
 
+    function setSingleOption(selectEl, text, value = '') {
+        if (!selectEl) return;
+        const opt = document.createElement('option');
+        opt.value = value;
+        opt.textContent = text;
+        selectEl.replaceChildren(opt);
+    }
+
     function showAlert(message, type = 'danger') {
         if (!alertBox) return;
         alertBox.textContent = message;
@@ -71,11 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const cp = e.target.value.trim();
 
             if (!/^[0-9]{5}$/.test(cp)) {
-                regVilleSelect.innerHTML = '<option value="">Entrez un code postal (5 chiffres)...</option>';
+                setSingleOption(regVilleSelect, 'Entrez un code postal (5 chiffres)...');
                 return;
             }
 
-            regVilleSelect.innerHTML = '<option value="">Recherche des communes...</option>';
+            setSingleOption(regVilleSelect, 'Recherche des communes...');
             regVilleSelect.disabled = true;
 
             try {
@@ -83,32 +91,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 const communes = await res.json();
 
                 if (!communes || communes.length === 0) {
-                    regVilleSelect.innerHTML = '<option value="">Aucune commune trouvée</option>';
+                    setSingleOption(regVilleSelect, 'Aucune commune trouvée');
                     regVilleSelect.disabled = false;
                     return;
                 }
 
-                regVilleSelect.innerHTML = '';
+                const fragment = document.createDocumentFragment();
                 if (communes.length > 1) {
                     const defaultOpt = document.createElement('option');
                     defaultOpt.value = '';
                     defaultOpt.textContent = `-- Choisissez votre commune (${communes.length}) --`;
-                    regVilleSelect.appendChild(defaultOpt);
+                    fragment.appendChild(defaultOpt);
                 }
 
                 communes.forEach(c => {
                     const opt = document.createElement('option');
                     opt.value = c.nom;
                     opt.textContent = c.nom;
-                    regVilleSelect.appendChild(opt);
+                    fragment.appendChild(opt);
                 });
+
+                regVilleSelect.replaceChildren(fragment);
 
                 if (communes.length === 1) {
                     regVilleSelect.value = communes[0].nom;
                 }
             } catch (err) {
                 console.error('Erreur chargement communes:', err);
-                regVilleSelect.innerHTML = '<option value="">Erreur réseau</option>';
+                setSingleOption(regVilleSelect, 'Erreur réseau');
             } finally {
                 regVilleSelect.disabled = false;
             }
@@ -164,10 +174,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (redirectUrl && !redirectUrl.includes('login')) {
                         window.location.href = decodeURIComponent(redirectUrl);
                     } else if (role === 'admin' || role === 'employe') {
-                        // José ou employé -> redirection vers le Back-Office
                         window.location.href = '/admin.html';
                     } else {
-                        // Client -> redirection vers son Espace Personnel
                         window.location.href = '/compte.html';
                     }
                 }, 800);
@@ -188,7 +196,6 @@ document.addEventListener('DOMContentLoaded', () => {
             hideAlert();
 
             const pwd = document.getElementById('reg-password').value;
-            // Exigence ECF : 10 caractères min., 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial
             const regexSecurite = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{10,}$/;
 
             if (!regexSecurite.test(pwd)) {
@@ -229,11 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 showAlert(data.message, 'success');
                 formRegister.reset();
-                if (regVilleSelect) {
-                    regVilleSelect.innerHTML = '<option value="">Entrez un code postal (5 chiffres)...</option>';
-                }
+                setSingleOption(regVilleSelect, 'Entrez un code postal (5 chiffres)...');
 
-                // Pré-remplit l'email dans l'onglet de connexion pour faciliter l'accès
                 const loginEmailInput = document.getElementById('login-email');
                 if (loginEmailInput) loginEmailInput.value = emailSaisi;
 

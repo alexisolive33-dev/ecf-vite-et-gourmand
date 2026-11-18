@@ -13,26 +13,35 @@ document.addEventListener('DOMContentLoaded', () => {
     const isAdmin = user && (user.role === 'admin' || user.role === 'employe');
 
     // 1. Mise à jour de l'affichage sur Desktop
-    const navConnexionLink = document.querySelector('.btn-connexion') || 
-                             document.querySelector('a[href*="login"]') || 
+    const navConnexionLink = document.querySelector('.btn-connexion') ||
+                             document.querySelector('a[href*="login"]') ||
                              Array.from(document.querySelectorAll('a')).find(el => el.textContent.trim().toLowerCase() === 'connexion');
 
     if (navConnexionLink && user) {
         const profileWrapper = document.createElement('div');
         profileWrapper.style.cssText = 'display: inline-flex; align-items: center; justify-content: flex-end; gap: 10px; justify-self: end;';
-        profileWrapper.innerHTML = `
-            ${isAdmin ? `
-                <a href="/admin.html" style="background: var(--color-primary, #721B29); color: #FFFFFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;">
-                    ⚙️ Admin
-                </a>
-            ` : ''}
-            <a href="/compte.html" title="Accéder à mon espace client" style="text-decoration: none; font-size: 13px; font-weight: 700; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
-                👤 ${user.prenom || 'Client'}
-            </a>
-            <button type="button" class="btn-logout-trigger" style="background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;">
-                Déconnexion
-            </button>
-        `;
+
+        if (isAdmin) {
+            const adminLink = document.createElement('a');
+            adminLink.href = '/admin.html';
+            adminLink.style.cssText = 'background: var(--color-primary, #721B29); color: #FFFFFF; padding: 5px 10px; border-radius: 4px; font-size: 12px; font-weight: 600; text-decoration: none; display: inline-flex; align-items: center; gap: 4px;';
+            adminLink.textContent = '⚙️ Admin';
+            profileWrapper.appendChild(adminLink);
+        }
+
+        const profileLink = document.createElement('a');
+        profileLink.href = '/compte.html';
+        profileLink.title = 'Accéder à mon espace client';
+        profileLink.style.cssText = 'text-decoration: none; font-size: 13px; font-weight: 700; color: var(--color-primary, #721B29); display: inline-flex; align-items: center; gap: 4px; cursor: pointer;';
+        profileLink.textContent = `👤 ${user.prenom || 'Client'}`;
+
+        const btnLogoutDesktop = document.createElement('button');
+        btnLogoutDesktop.type = 'button';
+        btnLogoutDesktop.className = 'btn-logout-trigger';
+        btnLogoutDesktop.style.cssText = 'background: none; border: 1px solid var(--color-primary, #721B29); color: var(--color-primary, #721B29); padding: 5px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.2s;';
+        btnLogoutDesktop.textContent = 'Déconnexion';
+
+        profileWrapper.append(profileLink, btnLogoutDesktop);
         navConnexionLink.replaceWith(profileWrapper);
     }
 
@@ -45,7 +54,12 @@ document.addEventListener('DOMContentLoaded', () => {
             burgerBtn.setAttribute('type', 'button');
             burgerBtn.setAttribute('aria-label', 'Ouvrir le menu de navigation');
             burgerBtn.setAttribute('aria-expanded', 'false');
-            burgerBtn.innerHTML = '<span></span><span></span><span></span>';
+
+            burgerBtn.append(
+                document.createElement('span'),
+                document.createElement('span'),
+                document.createElement('span')
+            );
             navContainer.appendChild(burgerBtn);
         }
 
@@ -55,25 +69,35 @@ document.addEventListener('DOMContentLoaded', () => {
             mobileAuth.className = 'mobile-auth-slot';
 
             if (user) {
-                mobileAuth.innerHTML = `
-                    <a href="/compte.html" class="btn-cta" style="height: 42px; font-size: 13px; text-decoration: none;">
-                        👤 Mon Espace Client (${user.prenom || 'Client'})
-                    </a>
-                    ${isAdmin ? `
-                        <a href="/admin.html" class="btn-cta-secondary" style="height: 38px; font-size: 13px; text-decoration: none; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;">
-                            ⚙️ Tableau de Bord Admin
-                        </a>
-                    ` : ''}
-                    <button type="button" class="btn-logout-trigger" style="background: none; border: 1px solid #991B1B; color: #991B1B; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer;">
-                        Déconnexion
-                    </button>
-                `;
+                const accountLink = document.createElement('a');
+                accountLink.href = '/compte.html';
+                accountLink.className = 'btn-cta';
+                accountLink.style.cssText = 'height: 42px; font-size: 13px; text-decoration: none;';
+                accountLink.textContent = `👤 Mon Espace Client (${user.prenom || 'Client'})`;
+                mobileAuth.appendChild(accountLink);
+
+                if (isAdmin) {
+                    const adminMobileLink = document.createElement('a');
+                    adminMobileLink.href = '/admin.html';
+                    adminMobileLink.className = 'btn-cta-secondary';
+                    adminMobileLink.style.cssText = 'height: 38px; font-size: 13px; text-decoration: none; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;';
+                    adminMobileLink.textContent = '⚙️ Tableau de Bord Admin';
+                    mobileAuth.appendChild(adminMobileLink);
+                }
+
+                const btnLogoutMobile = document.createElement('button');
+                btnLogoutMobile.type = 'button';
+                btnLogoutMobile.className = 'btn-logout-trigger';
+                btnLogoutMobile.style.cssText = 'background: none; border: 1px solid #991B1B; color: #991B1B; padding: 10px; border-radius: 6px; font-weight: 600; cursor: pointer;';
+                btnLogoutMobile.textContent = 'Déconnexion';
+                mobileAuth.appendChild(btnLogoutMobile);
             } else {
-                mobileAuth.innerHTML = `
-                    <a href="/login.html" class="btn-cta" style="height: 42px; font-size: 13px; text-decoration: none;">
-                        Se connecter / S'inscrire
-                    </a>
-                `;
+                const loginLink = document.createElement('a');
+                loginLink.href = '/login.html';
+                loginLink.className = 'btn-cta';
+                loginLink.style.cssText = 'height: 42px; font-size: 13px; text-decoration: none;';
+                loginLink.textContent = "Se connecter / S'inscrire";
+                mobileAuth.appendChild(loginLink);
             }
             nav.appendChild(mobileAuth);
         }
@@ -139,13 +163,18 @@ async function synchroniserHorairesFooter() {
             const titreH4 = colHoraires.querySelector('h4');
             const titreTexte = titreH4 ? titreH4.textContent : "Nos Horaires d'Ouverture";
 
-            const lignesHtml = data.horaires.map(h => {
-                const jour = String(h.jour_semaine || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                const heures = String(h.heures_ouverture || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                return `<p><strong>${jour} :</strong> ${heures}</p>`;
-            }).join('');
+            const h4 = document.createElement('h4');
+            h4.textContent = titreTexte;
 
-            colHoraires.innerHTML = `<h4>${titreTexte}</h4>${lignesHtml}`;
+            const paragraphes = data.horaires.map(h => {
+                const p = document.createElement('p');
+                const strong = document.createElement('strong');
+                strong.textContent = `${h.jour_semaine || ''} : `;
+                p.append(strong, document.createTextNode(h.heures_ouverture || ''));
+                return p;
+            });
+
+            colHoraires.replaceChildren(h4, ...paragraphes);
         }
     } catch (err) {
         console.error('Erreur chargement horaires footer:', err);

@@ -23,12 +23,22 @@ document.addEventListener('DOMContentLoaded', () => {
             .toLowerCase();
     }
 
+    function afficherMessageGrille(texte, isError = false) {
+        if (!catalogGrid) return;
+        const p = document.createElement('p');
+        p.style.gridColumn = '1 / -1';
+        p.style.textAlign = 'center';
+        if (isError) p.style.color = 'var(--color-primary)';
+        p.textContent = texte;
+        catalogGrid.replaceChildren(p);
+    }
+
     // 1. Récupération des formules depuis l'API REST
     fetch('/api/menus')
         .then(res => res.json())
         .then(res => {
             if (res.statut === 'succes' && res.donnees.length > 0) {
-                Promise.all(res.donnees.map(menu => 
+                Promise.all(res.donnees.map(menu =>
                     fetch(`/api/menus/${menu.id}`)
                         .then(r => r.json())
                         .then(detail => detail.statut === 'succes' ? detail.donnees : menu)
@@ -38,12 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     applyFilters();
                 });
             } else {
-                catalogGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center;">Aucun menu disponible pour le moment.</p>';
+                afficherMessageGrille('Aucun menu disponible pour le moment.');
             }
         })
         .catch(err => {
             console.error('Erreur API menus:', err);
-            catalogGrid.innerHTML = '<p style="grid-column: 1 / -1; text-align: center; color: var(--color-primary);">Impossible de charger les formules.</p>';
+            afficherMessageGrille('Impossible de charger les formules.', true);
         });
 
     // 2. Écouteurs des filtres
@@ -135,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            if (convivesFilterActive && parseInt(menu.convives_min) > currentMinConvives) {
+            if (convivesFilterActive && parseInt(menu.convives_min, 10) > currentMinConvives) {
                 return false;
             }
 
@@ -147,17 +157,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 4. Rendu visuel du catalogue
     function renderCatalog(menus) {
-        catalogGrid.innerHTML = '';
+        if (!catalogGrid) return;
 
         if (menus.length === 0) {
-            catalogGrid.innerHTML = `
-                <div style="grid-column: 1 / -1; text-align: center; padding: 40px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--color-border);">
-                    <p style="font-weight: 600; color: var(--color-primary); margin-bottom: 8px;">Aucune formule ne correspond à vos critères de recherche.</p>
-                    <p style="font-size: 13px; color: var(--color-text-muted);">Essayez d'ajuster le budget ou de réinitialiser les filtres.</p>
-                </div>
-            `;
+            const emptyBox = document.createElement('div');
+            emptyBox.style.cssText = 'grid-column: 1 / -1; text-align: center; padding: 40px; background: #FFFFFF; border-radius: 8px; border: 1px solid var(--color-border);';
+
+            const pTitle = document.createElement('p');
+            pTitle.style.cssText = 'font-weight: 600; color: var(--color-primary); margin-bottom: 8px;';
+            pTitle.textContent = 'Aucune formule ne correspond à vos critères de recherche.';
+
+            const pSub = document.createElement('p');
+            pSub.style.cssText = 'font-size: 13px; color: var(--color-text-muted);';
+            pSub.textContent = "Essayez d'ajuster le budget ou de réinitialiser les filtres.";
+
+            emptyBox.append(pTitle, pSub);
+            catalogGrid.replaceChildren(emptyBox);
             return;
         }
+
+        const fragment = document.createDocumentFragment();
 
         menus.forEach(menu => {
             const card = document.createElement('article');
@@ -172,60 +191,97 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             }
 
-            let tagsHtml = '';
-            if (allergenesSet.size > 0) {
-                tagsHtml = Array.from(allergenesSet).slice(0, 4).map(nom => 
-                    `<span class="allergen-tag">${nom}</span>`
-                ).join(' ');
-            } else {
-                tagsHtml = '<span class="allergen-tag" style="color: var(--badge-success-text);">Sans allergènes majeurs</span>';
-            }
-
             const regimeAffiche = menu.regime ? (menu.regime.charAt(0).toUpperCase() + menu.regime.slice(1)) : 'Classique';
             const imageUrl = menu.image_url || '/assets/images/menus/default-menu.webp';
             const delai = menu.delai_min_jours || 7;
             const stockage = menu.conditions_stockage || 'Conserver entre 0°C et +4°C';
 
-            // Lien direct vers la fiche descriptive et le configurateur
-            const targetUrl = `/commande.html?id=${menu.id}`;
+            // 1. Image & Badges
+            const imgWrapper = document.createElement('div');
+            imgWrapper.className = 'card-menu-image';
 
-            card.innerHTML = `
-                <div class="card-menu-image">
-                    <span class="pill-regime">${regimeAffiche}</span>
-                    <span class="pill-stock">Il reste ${menu.stock_disponible} commandes</span>
-                    <img 
-                        src="${imageUrl}" 
-                        alt="Présentation du menu ${menu.titre}" 
-                        loading="lazy"
-                        width="400"
-                        height="180"
-                        onerror="this.onerror=null; this.src='/assets/images/menus/default-menu.webp';"
-                    >
-                </div>
-                <div class="card-menu-body">
-                    <span class="surtitre-or">THÈME : ${(menu.theme || '').toUpperCase()}</span>
-                    <h3>${menu.titre}</h3>
-                    <p>${menu.description}</p>
-                    
-                    <div style="background: #F9FAFB; border-left: 3px solid var(--color-primary); padding: 6px 10px; margin: 10px 0; font-size: 11px; color: #4B5563;">
-                        <strong>Conditions :</strong> Réservation ${delai}j avant • ${stockage}
-                    </div>
+            const spanRegime = document.createElement('span');
+            spanRegime.className = 'pill-regime';
+            spanRegime.textContent = regimeAffiche;
 
-                    <div style="font-size: 11px; color: var(--color-text-muted); margin-bottom: 6px;">Allergènes :</div>
-                    <div class="allergenes-tags-container">
-                        ${tagsHtml}
-                    </div>
+            const spanStock = document.createElement('span');
+            spanStock.className = 'pill-stock';
+            spanStock.textContent = `Il reste ${menu.stock_disponible} commandes`;
 
-                    <div class="card-menu-price">${parseFloat(menu.prix_unitaire_ttc).toFixed(2).replace('.', ',')} €</div>
-                    <div class="card-menu-min">/ personne (Min. ${menu.convives_min} pers.)</div>
+            const img = document.createElement('img');
+            img.src = imageUrl;
+            img.alt = `Présentation du menu ${menu.titre || ''}`;
+            img.loading = 'lazy';
+            img.width = 400;
+            img.height = 180;
+            img.addEventListener('error', () => {
+                img.src = '/assets/images/menus/default-menu.webp';
+            }, { once: true });
 
-                    <a href="${targetUrl}" class="btn-cta" style="height: 40px; font-size: 13px; width: 100%; text-align: center; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;">
-                        Découvrir le menu & Devis &rarr;
-                    </a>
-                </div>
-            `;
+            imgWrapper.append(spanRegime, spanStock, img);
 
-            catalogGrid.appendChild(card);
+            // 2. Corps de carte
+            const body = document.createElement('div');
+            body.className = 'card-menu-body';
+
+            const surtitre = document.createElement('span');
+            surtitre.className = 'surtitre-or';
+            surtitre.textContent = `THÈME : ${(menu.theme || '').toUpperCase()}`;
+
+            const h3Titre = document.createElement('h3');
+            h3Titre.textContent = menu.titre || '';
+
+            const pDesc = document.createElement('p');
+            pDesc.textContent = menu.description || '';
+
+            const condBox = document.createElement('div');
+            condBox.style.cssText = 'background: #F9FAFB; border-left: 3px solid var(--color-primary); padding: 6px 10px; margin: 10px 0; font-size: 11px; color: #4B5563;';
+            const strongCond = document.createElement('strong');
+            strongCond.textContent = 'Conditions : ';
+            condBox.append(strongCond, document.createTextNode(`Réservation ${delai}j avant • ${stockage}`));
+
+            const labelAllergenes = document.createElement('div');
+            labelAllergenes.style.cssText = 'font-size: 11px; color: var(--color-text-muted); margin-bottom: 6px;';
+            labelAllergenes.textContent = 'Allergènes :';
+
+            const tagsContainer = document.createElement('div');
+            tagsContainer.className = 'allergenes-tags-container';
+
+            if (allergenesSet.size > 0) {
+                Array.from(allergenesSet).slice(0, 4).forEach((nom, idx) => {
+                    if (idx > 0) tagsContainer.appendChild(document.createTextNode(' '));
+                    const tag = document.createElement('span');
+                    tag.className = 'allergen-tag';
+                    tag.textContent = nom;
+                    tagsContainer.appendChild(tag);
+                });
+            } else {
+                const safeTag = document.createElement('span');
+                safeTag.className = 'allergen-tag';
+                safeTag.style.color = 'var(--badge-success-text)';
+                safeTag.textContent = 'Sans allergènes majeurs';
+                tagsContainer.appendChild(safeTag);
+            }
+
+            const priceDiv = document.createElement('div');
+            priceDiv.className = 'card-menu-price';
+            priceDiv.textContent = `${parseFloat(menu.prix_unitaire_ttc || 0).toFixed(2).replace('.', ',')} €`;
+
+            const minDiv = document.createElement('div');
+            minDiv.className = 'card-menu-min';
+            minDiv.textContent = `/ personne (Min. ${menu.convives_min} pers.)`;
+
+            const ctaLink = document.createElement('a');
+            ctaLink.href = `/commande.html?id=${menu.id}`;
+            ctaLink.className = 'btn-cta';
+            ctaLink.style.cssText = 'height: 40px; font-size: 13px; width: 100%; text-align: center; display: inline-flex; align-items: center; justify-content: center; text-decoration: none;';
+            ctaLink.textContent = 'Découvrir le menu & Devis →';
+
+            body.append(surtitre, h3Titre, pDesc, condBox, labelAllergenes, tagsContainer, priceDiv, minDiv, ctaLink);
+            card.append(imgWrapper, body);
+            fragment.appendChild(card);
         });
+
+        catalogGrid.replaceChildren(fragment);
     }
 });
